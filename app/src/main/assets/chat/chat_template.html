@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            color: #E8E0F0;
+            font-size: 15px;
+            line-height: 1.65;
+            font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+            background: transparent;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            -webkit-text-size-adjust: 100%;
+            padding: 2px 0;
+        }
+        /* Links */
+        a { color: #B388FF; text-decoration: underline; }
+        a:active { color: #CE93D8; }
+
+        /* Typography */
+        strong, b { font-weight: 700; color: #F0E8FF; }
+        em, i { font-style: italic; color: #D4C8E8; }
+
+        /* Paragraphs */
+        p { margin-bottom: 10px; }
+        p:last-child { margin-bottom: 0; }
+
+        /* Code */
+        code {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            color: #CE93D8;
+        }
+        pre {
+            background: rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 10px 0;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: #E8E0F0;
+            font-size: 13px;
+        }
+
+        /* Blockquote */
+        blockquote {
+            border-left: 3px solid #B388FF;
+            padding-left: 14px;
+            margin: 10px 0;
+            color: #A898C0;
+            font-style: italic;
+        }
+
+        /* Details / Summary (酒馆特有) */
+        details {
+            margin: 10px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #CE93D8;
+            outline: none;
+            user-select: none;
+        }
+        details[open] summary { margin-bottom: 8px; }
+
+        /* Lists */
+        ul, ol { padding-left: 22px; margin: 8px 0; }
+        li { margin-bottom: 4px; }
+
+        /* Horizontal Rule */
+        hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(179, 136, 255, 0.4), transparent);
+            margin: 16px 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+        th {
+            background: rgba(179, 136, 255, 0.15);
+            color: #CE93D8;
+            font-weight: 600;
+        }
+
+        /* Streaming cursor */
+        .streaming-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 18px;
+            background: #FFD54F;
+            margin-left: 2px;
+            animation: blink 0.8s infinite;
+            vertical-align: text-bottom;
+            border-radius: 2px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* Images */
+        img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="content"></div>
+    <script>
+        // Configure marked
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+            });
+        }
+
+        // Decode base64 UTF-8
+        function b64Decode(str) {
+            try {
+                return decodeURIComponent(atob(str).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+            } catch(e) {
+                return atob(str);
+            }
+        }
+
+        // Fallback markdown parser (if marked.js CDN fails)
+        function fallbackParse(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        // Set content from base64 encoded text
+        function setContent(b64Text, isStreaming) {
+            var el = document.getElementById('content');
+            try {
+                var text = b64Decode(b64Text);
+                if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+                    el.innerHTML = marked.parse(text);
+                } else {
+                    el.innerHTML = fallbackParse(text);
+                }
+            } catch(e) {
+                el.innerText = 'Render error: ' + e.message;
+            }
+
+            // Highlight code blocks
+            if (typeof hljs !== 'undefined') {
+                document.querySelectorAll('pre code').forEach(function(block) {
+                    hljs.highlightElement(block);
+                });
+            }
+
+            // Add streaming cursor
+            if (isStreaming) {
+                el.innerHTML += '<span class="streaming-cursor"></span>';
+            }
+
+            // Return height for native sizing
+            return document.body.scrollHeight;
+        }
+
+        // Get current content height
+        function getHeight() {
+            return document.body.scrollHeight;
+        }
+    </script>
+</body>
+</html>

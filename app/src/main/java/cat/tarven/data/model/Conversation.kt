@@ -1,0 +1,19 @@
+package cat.tarven.data.model
+
+import com.google.gson.annotations.SerializedName
+import java.util.UUID
+
+/**
+ * 对话数据模型
+ */
+data class Conversation(
+    val id: String = UUID.randomUUID().toString(),
+    @SerializedName("character_id")
+    val characterId: String = "",
+    val title: String = "",
+    val messages: MutableList<ChatMessage> = mutableListOf(),
+    @SerializedName("created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    @SerializedName("updated_at")
+    var updatedAt: Long = System.currentTimeMillis()
+)
