@@ -398,6 +398,55 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 重新生成指定消息
+     */
+    fun regenerateMessage(messageId: String) {
+        if (isGenerating) return
+        
+        val index = messages.indexOfFirst { it.id == messageId }
+        if (index < 0) return
+
+        // 如果是最后一条消息，且它是 AI 消息，则等同于 regenerateLastResponse
+        if (index == messages.lastIndex && messages[index].role == MessageRole.ASSISTANT) {
+            regenerateLastResponse()
+            return
+        }
+
+        // 如果重试的是以前的消息，我们要删除从这条消息开始的所有后续消息
+        if (messages[index].role == MessageRole.ASSISTANT) {
+            val messagesToRemove = messages.size - index
+            for (i in 0 until messagesToRemove) {
+                messages.removeAt(messages.lastIndex)
+            }
+            saveMessages()
+            // 重新触发生成
+            val lastUserIndex = messages.indexOfLast { it.role == MessageRole.USER }
+            if (lastUserIndex >= 0) {
+                isGenerating = true
+                errorMessage = null
+                val character = currentCharacter ?: return
+                val apiMessages = buildApiMessages(character)
+                val request = ChatCompletionRequest(
+                    model = settingsRepo.modelName,
+                    messages = apiMessages,
+                    temperature = settingsRepo.temperature.toDouble(),
+                    maxTokens = settingsRepo.maxTokens,
+                    topP = settingsRepo.topP.toDouble(),
+                    frequencyPenalty = settingsRepo.frequencyPenalty.toDouble(),
+                    presencePenalty = settingsRepo.presencePenalty.toDouble(),
+                    stream = settingsRepo.streamEnabled
+                )
+                labRepository.saveLog(character.name, request)
+                if (settingsRepo.streamEnabled) {
+                    streamResponse(request, character)
+                } else {
+                    nonStreamResponse(request, character)
+                }
+            }
+        }
+    }
+
+    /**
      * 删除指定消息
      */
     fun deleteMessage(messageId: String) {

@@ -72,7 +72,6 @@ fun ChatBubble(
     val isUser = message.role == MessageRole.USER
     val isSystem = message.role == MessageRole.SYSTEM
     val clipboardManager = LocalClipboardManager.current
-    var showMenu by remember { mutableStateOf(false) }
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
 
     Row(
@@ -160,11 +159,6 @@ fun ChatBubble(
                             bottomEnd = 18.dp
                         )
                     )
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onLongPress = { showMenu = true }
-                        )
-                    }
                     .animateContentSize()
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
@@ -220,58 +214,40 @@ fun ChatBubble(
                     }
                 }
 
-                // 长按菜单
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("复制") },
-                        onClick = {
-                            clipboardManager.setText(AnnotatedString(message.content))
-                            showMenu = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.ContentCopy, null) }
-                    )
-                    if (!isSystem) {
-                        DropdownMenuItem(
-                            text = { Text("编辑") },
-                            onClick = {
-                                onEdit(message.content)
-                                showMenu = false
-                            },
-                            leadingIcon = { Icon(Icons.Default.Edit, null) }
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("删除") },
-                        onClick = {
-                            onDelete()
-                            showMenu = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.Delete, null) }
-                    )
-                    if (isLastAssistant && !isUser && !isSystem) {
-                        DropdownMenuItem(
-                            text = { Text("重新生成") },
-                            onClick = {
-                                onRegenerate()
-                                showMenu = false
-                            },
-                            leadingIcon = { Icon(Icons.Default.Refresh, null) }
-                        )
-                    }
-                }
             }
 
-            // 时间戳
+            // 时间戳与操作栏
             if (!isSystem) {
-                Text(
-                    text = formatTimestamp(message.timestamp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
-                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatTimestamp(message.timestamp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                    
+                    // 操作图标组
+                    IconButton(onClick = { onEdit(message.content) }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "编辑", tint = TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.content)) }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "删除", tint = TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                    if (isLastAssistant && !isUser) {
+                        IconButton(onClick = onRegenerate, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = TextMuted, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
             }
         }
 
@@ -323,6 +299,22 @@ fun HtmlText(
                 // 禁用长按选词的放大镜，使用自定义样式
                 isLongClickable = false
                 
+                // 彻底禁用 WebView 内部滚动，交由 Compose 的 LazyColumn 处理
+                overScrollMode = android.view.View.OVER_SCROLL_NEVER
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                isFocusable = false
+                isFocusableInTouchMode = false
+
+                // 核心修复：强制释放滑动控制权给外层的 LazyColumn
+                setOnTouchListener { view, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_DOWN || 
+                        event.action == android.view.MotionEvent.ACTION_MOVE) {
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                    false
+                }
+
                 layoutParams = android.view.ViewGroup.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT

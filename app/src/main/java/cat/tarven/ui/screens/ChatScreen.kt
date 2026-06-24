@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -80,14 +81,37 @@ fun ChatScreen(
     var showWorldInfo by remember { mutableStateOf(false) }
     var worldInfo by remember(character) { mutableStateOf(character?.worldInfo ?: WorldInfo()) }
 
+    var editingMessageId by remember { mutableStateOf<String?>(null) }
+    var editingMessageContent by remember { mutableStateOf("") }
+
+    // 判断是否已经在列表底部
+    val isAtBottom by remember {
+        androidx.compose.runtime.derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val visibleItemsInfo = layoutInfo.visibleItemsInfo
+            if (layoutInfo.totalItemsCount == 0) true
+            else {
+                val lastVisibleItem = visibleItemsInfo.lastOrNull()
+                lastVisibleItem?.index == layoutInfo.totalItemsCount - 1
+            }
+        }
+    }
+
     // 每次进入页面时刷新角色数据，确保获取到最新的世界书等修改
     androidx.compose.runtime.LaunchedEffect(Unit) {
         chatViewModel.reloadCharacter()
     }
 
-    // 自动滚动到底部
-    LaunchedEffect(messages.size, messages.lastOrNull()?.content) {
+    // 新增消息时，自动滚动到底部
+    LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    // AI 生成内容时，如果原本就在底部，则跟随滚动
+    LaunchedEffect(messages.lastOrNull()?.content) {
+        if (messages.isNotEmpty() && isAtBottom && !listState.isScrollInProgress) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
@@ -251,8 +275,11 @@ fun ChatScreen(
                             enableHtmlRendering = settingsViewModel.enableHtmlRendering,
                             isLastAssistant = isLastAssistant,
                             onDelete = { chatViewModel.deleteMessage(message.id) },
-                            onEdit = { /* TODO: 弹出编辑对话框 */ },
-                            onRegenerate = { chatViewModel.regenerateLastResponse() },
+                            onEdit = { 
+                                editingMessageId = message.id
+                                editingMessageContent = it // 注意这里是从 Bubble 传上来的 content
+                            },
+                            onRegenerate = { chatViewModel.regenerateMessage(message.id) },
                             onSwitchGreeting = { newIdx -> chatViewModel.switchGreeting(message.id, newIdx) }
                         )
                     }
@@ -293,6 +320,45 @@ fun ChatScreen(
                 worldInfo = updated
                 chatViewModel.saveWorldInfo(updated)
             }
+        )
+    }
+
+    // 编辑消息弹窗
+    if (editingMessageId != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { editingMessageId = null },
+            title = { Text("编辑消息") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = editingMessageContent,
+                    onValueChange = { editingMessageContent = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = DarkSurfaceElevated,
+                        unfocusedContainerColor = DarkSurfaceElevated,
+                        focusedBorderColor = TavernPurple,
+                        unfocusedBorderColor = TavernPurpleLight.copy(alpha = 0.5f)
+                    )
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        chatViewModel.editMessage(editingMessageId!!, editingMessageContent)
+                        editingMessageId = null
+                    }
+                ) {
+                    Text("保存", color = TavernPurpleLight)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { editingMessageId = null }) {
+                    Text("取消", color = TextMuted)
+                }
+            },
+            containerColor = DarkSurface,
+            titleContentColor = TextPrimary
         )
     }
 }
