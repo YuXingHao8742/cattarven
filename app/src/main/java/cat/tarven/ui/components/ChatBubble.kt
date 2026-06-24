@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.AnnotatedString
@@ -67,6 +69,7 @@ fun ChatBubble(
     onRegenerate: () -> Unit = {},
     onSwitchGreeting: ((Int) -> Unit)? = null,
     isLastAssistant: Boolean = false,
+    itemHeights: androidx.compose.runtime.snapshots.SnapshotStateMap<String, androidx.compose.ui.unit.Dp>? = null,
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == MessageRole.USER
@@ -127,6 +130,9 @@ fun ChatBubble(
                 )
             }
 
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val cachedHeight = itemHeights?.get(message.id)
+
             // 消息气泡
             Box(
                 modifier = Modifier
@@ -159,8 +165,20 @@ fun ChatBubble(
                             bottomEnd = 18.dp
                         )
                     )
-                    .animateContentSize()
+                    .then(
+                        if (cachedHeight != null) Modifier.heightIn(min = cachedHeight) else Modifier
+                    )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .onSizeChanged { size ->
+                        if (size.height > 0) {
+                            val heightDp = with(density) { size.height.toDp() }
+                            // 如果高度变化超过 2dp，再更新缓存，避免频繁重组
+                            val oldHeight = itemHeights?.get(message.id)?.value ?: 0f
+                            if (kotlin.math.abs(oldHeight - heightDp.value) > 2f) {
+                                itemHeights?.put(message.id, heightDp)
+                            }
+                        }
+                    }
             ) {
                 if (isSystem) {
                     Text(

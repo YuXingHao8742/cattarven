@@ -83,6 +83,7 @@ fun ChatScreen(
 
     var editingMessageId by remember { mutableStateOf<String?>(null) }
     var editingMessageContent by remember { mutableStateOf("") }
+    val itemHeights = remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.unit.Dp>() }
 
     // 判断是否已经在列表底部
     val isAtBottom by remember {
@@ -274,10 +275,11 @@ fun ChatScreen(
                             characterAvatarUri = character?.avatarUri,
                             enableHtmlRendering = settingsViewModel.enableHtmlRendering,
                             isLastAssistant = isLastAssistant,
+                            itemHeights = itemHeights,
                             onDelete = { chatViewModel.deleteMessage(message.id) },
                             onEdit = { 
                                 editingMessageId = message.id
-                                editingMessageContent = it // 注意这里是从 Bubble 传上来的 content
+                                editingMessageContent = it 
                             },
                             onRegenerate = { chatViewModel.regenerateMessage(message.id) },
                             onSwitchGreeting = { newIdx -> chatViewModel.switchGreeting(message.id, newIdx) }
