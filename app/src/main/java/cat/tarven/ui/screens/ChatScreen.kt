@@ -85,16 +85,37 @@ fun ChatScreen(
     var editingMessageContent by remember { mutableStateOf("") }
     val itemHeights = remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.unit.Dp>() }
 
-    // 判断是否已经在列表底部
-    val isAtBottom by remember {
+    // 判断是否真实贴近列表底部（容差 150px）
+    val isAtAbsoluteBottom by remember {
         androidx.compose.runtime.derivedStateOf {
             val layoutInfo = listState.layoutInfo
             val visibleItemsInfo = layoutInfo.visibleItemsInfo
             if (layoutInfo.totalItemsCount == 0) true
             else {
-                val lastVisibleItem = visibleItemsInfo.lastOrNull()
-                lastVisibleItem?.index == layoutInfo.totalItemsCount - 1
+                val lastItem = visibleItemsInfo.lastOrNull()
+                if (lastItem == null) true
+                else if (lastItem.index != layoutInfo.totalItemsCount - 1) false
+                else {
+                    // 判断最后一个元素的底部是否在视口底部附近
+                    lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + 150
+                }
             }
+        }
+    }
+
+    var autoScrollEnabled by remember { mutableStateOf(true) }
+
+    // 监听用户滚动状态，如果是用户主动滑动的，暂停自动跟随
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            autoScrollEnabled = false
+        }
+    }
+
+    // 如果用户手动滑到了最底部，重新激活自动跟随
+    LaunchedEffect(isAtAbsoluteBottom) {
+        if (isAtAbsoluteBottom && !listState.isScrollInProgress) {
+            autoScrollEnabled = true
         }
     }
 
@@ -103,17 +124,19 @@ fun ChatScreen(
         chatViewModel.reloadCharacter()
     }
 
-    // 新增消息时，自动滚动到底部
+    // 新增消息时，激活自动滚动并直接沉底
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            autoScrollEnabled = true
+            listState.scrollToItem(messages.size - 1, 100000)
         }
     }
 
-    // AI 生成内容时，如果原本就在底部，则跟随滚动
+    // AI 生成内容时，跟随底部
     LaunchedEffect(messages.lastOrNull()?.content) {
-        if (messages.isNotEmpty() && isAtBottom && !listState.isScrollInProgress) {
-            listState.animateScrollToItem(messages.size - 1)
+        if (messages.isNotEmpty() && autoScrollEnabled) {
+            // 使用极大偏移量迫使 Compose 将元素的底部与视口底部对齐，避免跳动到顶部
+            listState.scrollToItem(messages.size - 1, 100000)
         }
     }
 
