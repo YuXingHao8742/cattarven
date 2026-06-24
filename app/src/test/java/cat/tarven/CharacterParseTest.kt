@@ -1,46 +1,42 @@
 package cat.tarven
 
 import cat.tarven.data.model.CharacterCardV2
-import cat.tarven.data.model.CharacterCardData
 import com.google.gson.Gson
 import org.junit.Test
-import java.io.File
 import org.junit.Assert.*
 
 class CharacterParseTest {
     @Test
-    fun testParse() {
+    fun testParseV2CharacterCardAndWorldInfo() {
         val gson = Gson()
-        val jsonFile = File("C:/Users/13779/Desktop/cattarven/app/src/main/java/cat/tarven/data/model/潜意识修改·灵.json")
-        val jsonString = jsonFile.readText()
+        val jsonString = """
+            {
+              "spec": "chara_card_v2",
+              "spec_version": "2.0",
+              "data": {
+                "name": "Test Character",
+                "description": "desc",
+                "character_book": {
+                  "entries": {
+                    "0": {
+                      "keys": ["forest", "night"],
+                      "content": "A hidden forest lore",
+                      "enabled": true
+                    }
+                  }
+                }
+              }
+            }
+        """.trimIndent()
 
         val cardV2 = gson.fromJson(jsonString, CharacterCardV2::class.java)
-        println("Spec: ${cardV2.spec}")
-        println("Name: ${cardV2.data.name}")
-        
-        val characterBook = cardV2.data.characterBook
-        println("Has CharacterBook: ${characterBook != null}")
-        
-        if (characterBook != null) {
-            println("Entries type: ${characterBook.entries?.javaClass?.name}")
-            
-            val worldInfo = characterBook.toWorldInfo()
-            println("WorldInfo entries count: ${worldInfo.entries.size}")
-            
-            if (worldInfo.entries.isEmpty()) {
-                // Manually try to see what's wrong
-                val jsonStr = gson.toJson(characterBook.entries)
-                println("Serialized entries: ${jsonStr.take(200)}")
-                
-                try {
-                    val listType = object : com.google.gson.reflect.TypeToken<List<cat.tarven.data.model.RawWorldInfoEntry>>() {}.type
-                    val list: List<cat.tarven.data.model.RawWorldInfoEntry> = gson.fromJson(jsonStr, listType)
-                    println("List parsed manually: ${list.size}")
-                } catch (e: Exception) {
-                    println("List parse failed: ${e.message}")
-                    e.printStackTrace()
-                }
-            }
-        }
+        assertEquals("chara_card_v2", cardV2.spec)
+        assertEquals("Test Character", cardV2.data.name)
+
+        val worldInfo = cardV2.data.characterBook?.toWorldInfo()
+        assertNotNull(worldInfo)
+        assertEquals(1, worldInfo!!.entries.size)
+        assertEquals(listOf("forest", "night"), worldInfo.entries.first().keys)
+        assertEquals("A hidden forest lore", worldInfo.entries.first().content)
     }
 }

@@ -301,29 +301,5 @@ fun CharacterListScreen(
             )
         }
 
-        // 删除确认对话框
-        showDeleteDialog?.let { character ->
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = null },
-                title = { Text("删除角色") },
-                text = { Text("确定要删除 ${character.name} 吗？所有聊天记录也会被删除。") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        characterViewModel.deleteCharacter(character.id)
-                        showDeleteDialog = null
-                    }) {
-                        Text("删除", color = ErrorRed)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = null }) {
-                        Text("取消")
-                    }
-                },
-                containerColor = DarkSurfaceElevated,
-                titleContentColor = TextPrimary,
-                textContentColor = TextSecondary
-            )
-        }
     }
 }

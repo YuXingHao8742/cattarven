@@ -69,8 +69,8 @@ fun WorldInfoDialog(
                     entry = editingEntry!!,
                     worldInfo = worldInfo,
                     textFieldColors = textFieldColors,
-                    onSave = { newEntry ->
-                        val newEntries = worldInfo.entries.toMutableList()
+                    onSave = { newEntry, baseEntries ->
+                        val newEntries = baseEntries.toMutableList()
                         val index = newEntries.indexOfFirst { it.id == newEntry.id }
                         if (index >= 0) newEntries[index] = newEntry else newEntries.add(newEntry)
                         onUpdate(WorldInfo(newEntries))
@@ -204,7 +204,7 @@ private fun WorldInfoEntryEditor(
     entry: WorldInfoEntry,
     worldInfo: WorldInfo,
     textFieldColors: TextFieldColors,
-    onSave: (WorldInfoEntry) -> Unit,
+    onSave: (WorldInfoEntry, List<WorldInfoEntry>) -> Unit,
     onCancel: () -> Unit
 ) {
     var keysText by remember { mutableStateOf(entry.keys.joinToString(",")) }
@@ -414,14 +414,12 @@ private fun WorldInfoEntryEditor(
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = {
-                    // 如果设置了唯一标签，先清除同标签的其他条目
-                    var updatedWorldInfo = worldInfo
-                    if (tagState == "main_setting" || tagState == "writing_rules") {
-                        updatedWorldInfo = WorldInfo(
-                            worldInfo.entries.map {
-                                if (it.id != entry.id && it.tag == tagState) it.copy(tag = "normal") else it
-                            }
-                        )
+                    val baseEntries = if (tagState == "main_setting" || tagState == "writing_rules") {
+                        worldInfo.entries.map {
+                            if (it.id != entry.id && it.tag == tagState) it.copy(tag = "normal") else it
+                        }
+                    } else {
+                        worldInfo.entries
                     }
 
                     val newEntry = entry.copy(
@@ -435,7 +433,7 @@ private fun WorldInfoEntryEditor(
                         constant = constantState,
                         disable = disableState
                     )
-                    onSave(newEntry)
+                    onSave(newEntry, baseEntries)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = TextPrimary)
             ) { Text("保存") }

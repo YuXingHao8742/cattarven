@@ -132,6 +132,7 @@ fun ChatBubble(
 
             val density = androidx.compose.ui.platform.LocalDensity.current
             val cachedHeight = itemHeights?.get(message.id)
+            val displayText = message.displayContent
 
             // 消息气泡
             Box(
@@ -182,17 +183,25 @@ fun ChatBubble(
             ) {
                 if (isSystem) {
                     Text(
-                        text = message.content,
+                        text = displayText,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         fontStyle = FontStyle.Italic
                     )
                 } else {
-                    HtmlText(
-                        text = message.content,
-                        isStreaming = message.isStreaming,
-                        color = TextPrimary.toArgb()
-                    )
+                    if (enableHtmlRendering) {
+                        HtmlText(
+                            text = displayText,
+                            isStreaming = message.isStreaming,
+                            color = TextPrimary.toArgb()
+                        )
+                    } else {
+                        Text(
+                            text = displayText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary
+                        )
+                    }
                 }
 
                 // 多版本切换器（Swipes 或 旧版开场白）
@@ -254,10 +263,10 @@ fun ChatBubble(
                     )
                     
                     // 操作图标组
-                    IconButton(onClick = { onEdit(message.content) }, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = { onEdit(displayText) }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = "编辑", tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
-                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.content)) }, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(displayText)) }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {

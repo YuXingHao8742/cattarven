@@ -226,13 +226,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .catch { error ->
                 // 流出错，更新消息或显示错误
                 if (contentBuilder.isEmpty()) {
-                    messages.removeAt(msgIndex)
+                    if (msgIndex in messages.indices) {
+                        messages.removeAt(msgIndex)
+                    }
                     errorMessage = "生成失败: ${error.message}"
                 } else {
-                    messages[msgIndex] = messages[msgIndex].copy(
-                        content = contentBuilder.toString(),
-                        isStreaming = false
-                    )
+                    if (msgIndex in messages.indices) {
+                        messages[msgIndex] = messages[msgIndex].copy(
+                            content = contentBuilder.toString(),
+                            isStreaming = false
+                        )
+                    }
                 }
                 setGeneratingStatus(false)
                 saveMessages()
@@ -538,12 +542,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentConversation = chatRepo.saveConversation(newConv)
         messages.clear()
 
-        // 添加开场白
-        if (character.firstMessage.isNotBlank()) {
+        // 添加开场白（与 initChat 保持一致：主开场白 + 备用开场白）
+        val allGreetings = buildList {
+            if (character.firstMessage.isNotBlank()) add(character.firstMessage)
+            addAll(character.alternateGreetings)
+        }.distinct()
+
+        if (allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(character.firstMessage, character),
-                name = character.name
+                content = substituteParams(allGreetings.first(), character),
+                name = character.name,
+                alternateGreetings = allGreetings,
+                currentGreetingIndex = 0
             )
             messages.add(firstMsg)
             saveMessages()

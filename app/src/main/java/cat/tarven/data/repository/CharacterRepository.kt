@@ -155,7 +155,7 @@ class CharacterRepository(private val context: Context) {
                     val raw = gson.fromJson(value, RawWorldInfoEntry::class.java)
                     if (raw.disable == true) continue
                     entryList.add(WorldInfoEntry(
-                        keys = raw.key ?: emptyList(),
+                        keys = raw.keys ?: raw.key ?: emptyList(),
                         content = raw.content ?: "",
                         insertionOrder = raw.insertionorder ?: raw.order ?: 0,
                         comment = raw.comment ?: "",
@@ -172,7 +172,7 @@ class CharacterRepository(private val context: Context) {
                     val raw = gson.fromJson(elem, RawWorldInfoEntry::class.java)
                     if (raw.disable == true) continue
                     entryList.add(WorldInfoEntry(
-                        keys = raw.key ?: emptyList(),
+                        keys = raw.keys ?: raw.key ?: emptyList(),
                         content = raw.content ?: "",
                         insertionOrder = raw.insertionorder ?: raw.order ?: 0,
                         comment = raw.comment ?: "",
