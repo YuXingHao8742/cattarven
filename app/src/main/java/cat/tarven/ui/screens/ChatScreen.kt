@@ -3,6 +3,10 @@ package cat.tarven.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,6 +112,19 @@ fun ChatScreen(
     }
 
     var autoScrollEnabled by remember { mutableStateOf(true) }
+    var showScrollToBottom by remember { mutableStateOf(false) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                // 只有快速滑动时，才触发显示（纵向速度绝对值大于 1500f，说明触发了明显的 Fling）
+                if (kotlin.math.abs(available.y) > 1500f) {
+                    showScrollToBottom = true
+                }
+                return super.onPreFling(available)
+            }
+        }
+    }
 
     // 监听用户滚动状态，如果是用户主动滑动的，暂停自动跟随
     LaunchedEffect(listState.isScrollInProgress) {
@@ -112,10 +133,11 @@ fun ChatScreen(
         }
     }
 
-    // 如果用户手动滑到了最底部，重新激活自动跟随
+    // 如果用户手动滑到了最底部，重新激活自动跟随，并隐藏到达底部的图标
     LaunchedEffect(isAtAbsoluteBottom) {
         if (isAtAbsoluteBottom && !listState.isScrollInProgress) {
             autoScrollEnabled = true
+            showScrollToBottom = false
         }
     }
 
@@ -261,7 +283,7 @@ fun ChatScreen(
         )
 
         // 消息列表
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).nestedScroll(nestedScrollConnection)) {
             if (messages.isEmpty()) {
                 // 空状态
                 Box(
@@ -305,7 +327,7 @@ fun ChatScreen(
                                 editingMessageContent = it 
                             },
                             onRegenerate = { chatViewModel.regenerateMessage(message.id) },
-                            onSwitchGreeting = { newIdx -> chatViewModel.switchGreeting(message.id, newIdx) }
+                            onSwitchGreeting = { newIdx -> chatViewModel.switchSwipe(message.id, newIdx) }
                         )
                     }
                 }
@@ -322,6 +344,37 @@ fun ChatScreen(
                     contentColor = ErrorRed,
                     shape = RoundedCornerShape(12.dp)
                 )
+            }
+
+            // 到达底部按钮（FAB）
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
+            ) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showScrollToBottom && !isAtAbsoluteBottom,
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            if (messages.isNotEmpty()) {
+                                listState.animateScrollToItem(messages.lastIndex)
+                            }
+                            showScrollToBottom = false
+                            autoScrollEnabled = true
+                        }
+                    },
+                    containerColor = TavernPurple,
+                    contentColor = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to Bottom")
+                }
+                }
             }
         }
 

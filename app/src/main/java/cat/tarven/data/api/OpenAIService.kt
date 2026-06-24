@@ -78,6 +78,7 @@ class OpenAIService {
                 }
 
                 try {
+                    var isReasoning = false
                     val reader = BufferedReader(
                         InputStreamReader(response.body!!.byteStream())
                     )
@@ -91,8 +92,22 @@ class OpenAIService {
                             }
                             try {
                                 val chunk = gson.fromJson(data, StreamChunk::class.java)
-                                val content = chunk.choices?.firstOrNull()?.delta?.content
+                                val delta = chunk.choices?.firstOrNull()?.delta
+                                val reasoning = delta?.reasoningContent
+                                val content = delta?.content
+
+                                if (!reasoning.isNullOrEmpty()) {
+                                    if (!isReasoning) {
+                                        isReasoning = true
+                                        trySend("<think>\n")
+                                    }
+                                    trySend(reasoning)
+                                }
                                 if (!content.isNullOrEmpty()) {
+                                    if (isReasoning) {
+                                        isReasoning = false
+                                        trySend("\n</think>\n\n")
+                                    }
                                     trySend(content)
                                 }
                             } catch (e: Exception) {
@@ -144,7 +159,12 @@ class OpenAIService {
             }
 
             val completionResponse = gson.fromJson(responseBody, ChatCompletionResponse::class.java)
-            val content = completionResponse.choices?.firstOrNull()?.message?.content ?: ""
+            val msg = completionResponse.choices?.firstOrNull()?.message
+            var content = msg?.content ?: ""
+            val reasoning = msg?.reasoningContent
+            if (!reasoning.isNullOrEmpty()) {
+                content = "<think>\n$reasoning\n</think>\n\n$content"
+            }
             Result.success(content)
         } catch (e: Exception) {
             Result.failure(e)

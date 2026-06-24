@@ -195,8 +195,11 @@ fun ChatBubble(
                     )
                 }
 
-                // 多开场白切换器
-                if (message.alternateGreetings.size > 1 && onSwitchGreeting != null) {
+                // 多版本切换器（Swipes 或 旧版开场白）
+                val totalVersions = if (message.swipes.isNotEmpty()) message.swipes.size else message.alternateGreetings.size
+                val currentVersionIdx = if (message.swipes.isNotEmpty()) message.currentSwipeIndex else message.currentGreetingIndex
+
+                if (totalVersions > 1 && onSwitchGreeting != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -205,7 +208,7 @@ fun ChatBubble(
                     ) {
                         IconButton(
                             onClick = { 
-                                val newIdx = if (message.currentGreetingIndex > 0) message.currentGreetingIndex - 1 else message.alternateGreetings.size - 1
+                                val newIdx = if (currentVersionIdx > 0) currentVersionIdx - 1 else totalVersions - 1
                                 onSwitchGreeting(newIdx) 
                             },
                             modifier = Modifier.size(24.dp)
@@ -214,7 +217,7 @@ fun ChatBubble(
                         }
                         
                         Text(
-                            text = "${message.currentGreetingIndex + 1} / ${message.alternateGreetings.size}",
+                            text = "${currentVersionIdx + 1} / $totalVersions",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted,
                             modifier = Modifier.padding(horizontal = 8.dp)
@@ -222,7 +225,7 @@ fun ChatBubble(
 
                         IconButton(
                             onClick = { 
-                                val newIdx = if (message.currentGreetingIndex < message.alternateGreetings.size - 1) message.currentGreetingIndex + 1 else 0
+                                val newIdx = if (currentVersionIdx < totalVersions - 1) currentVersionIdx + 1 else 0
                                 onSwitchGreeting(newIdx) 
                             },
                             modifier = Modifier.size(24.dp)

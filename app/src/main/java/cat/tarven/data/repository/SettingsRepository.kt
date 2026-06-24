@@ -24,6 +24,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_SYSTEM_PROMPT = "system_prompt"
         private const val KEY_STREAM_ENABLED = "stream_enabled"
         private const val KEY_ENABLE_HTML = "enable_html"
+        private const val KEY_AUTO_SWIPE_COUNT = "auto_swipe_count"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_PERSONA = "user_persona"
 
@@ -74,8 +75,12 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit { putBoolean(KEY_STREAM_ENABLED, value) }
 
     var enableHtmlRendering: Boolean
-        get() = prefs.getBoolean(KEY_ENABLE_HTML, false)
+        get() = prefs.getBoolean(KEY_ENABLE_HTML, true)
         set(value) = prefs.edit { putBoolean(KEY_ENABLE_HTML, value) }
+
+    var autoSwipeCount: Int
+        get() = prefs.getInt(KEY_AUTO_SWIPE_COUNT, 1)
+        set(value) = prefs.edit { putInt(KEY_AUTO_SWIPE_COUNT, value) }
 
     var userName: String
         get() = prefs.getString(KEY_USER_NAME, "You") ?: "You"

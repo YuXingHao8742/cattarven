@@ -413,6 +413,31 @@ fun SettingsScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 自动生成备选回复数
+            Text(
+                text = "每次生成备选回复数: ${settingsViewModel.autoSwipeCount}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+            androidx.compose.material3.Slider(
+                value = settingsViewModel.autoSwipeCount.toFloat(),
+                onValueChange = { settingsViewModel.updateAutoSwipeCount(it.toInt()) },
+                valueRange = 1f..5f,
+                steps = 3,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = TavernGold,
+                    activeTrackColor = TavernPurple,
+                    inactiveTrackColor = DarkSurfaceVariant
+                )
+            )
+            Text(
+                text = "发送消息时，AI 会在后台自动生成此数量的独立回复供您左右滑动挑选。数量越多，所需等待时间和 Token 消耗越大。",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(color = DividerColor)
             Spacer(modifier = Modifier.height(16.dp))

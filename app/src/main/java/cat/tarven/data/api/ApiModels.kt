@@ -18,6 +18,7 @@ data class ChatCompletionRequest(
     val frequencyPenalty: Double = 0.0,
     @SerializedName("presence_penalty")
     val presencePenalty: Double = 0.0,
+    val n: Int? = 1
 )
 
 data class ApiMessage(
@@ -45,7 +46,9 @@ data class Choice(
 
 data class ResponseMessage(
     val role: String?,
-    val content: String?
+    val content: String?,
+    @SerializedName("reasoning_content")
+    val reasoningContent: String? = null
 )
 
 data class Usage(
@@ -80,7 +83,9 @@ data class StreamChoice(
 
 data class DeltaMessage(
     val role: String?,
-    val content: String?
+    val content: String?,
+    @SerializedName("reasoning_content")
+    val reasoningContent: String? = null
 )
 
 /**

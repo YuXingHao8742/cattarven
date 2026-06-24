@@ -41,6 +41,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private set
     var userPersona by mutableStateOf(repository.userPersona)
         private set
+    var autoSwipeCount by mutableStateOf(repository.autoSwipeCount)
+        private set
 
     // 连接测试状态
     var connectionTestResult by mutableStateOf<String?>(null)
@@ -136,14 +138,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         repository.streamEnabled = value
     }
 
-    fun updateEnableHtmlRendering(value: Boolean) {
-        enableHtmlRendering = value
-        repository.enableHtmlRendering = value
+    fun updateEnableHtmlRendering(enabled: Boolean) {
+        enableHtmlRendering = enabled
+        repository.enableHtmlRendering = enabled
     }
 
-    fun updateUserName(value: String) {
-        userName = value
-        repository.userName = value
+    fun updateAutoSwipeCount(count: Int) {
+        autoSwipeCount = count
+        repository.autoSwipeCount = count
+    }
+
+    fun updateUserName(name: String) {
+        userName = name
+        repository.userName = name
     }
 
     fun updateUserPersona(value: String) {

@@ -75,12 +75,29 @@
         }
         summary {
             cursor: pointer;
-            font-weight: 600;
             color: #CE93D8;
+            font-weight: bold;
             outline: none;
             user-select: none;
         }
         details[open] summary { margin-bottom: 8px; }
+
+        /* Think Box */
+        details.think-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid #B388FF;
+        }
+        details.think-box summary {
+            color: #CE93D8;
+            font-size: 0.95em;
+        }
+        .think-content {
+            color: #A0A0A0;
+            font-size: 0.95em;
+        }
 
         /* Lists */
         ul, ol { padding-left: 22px; margin: 8px 0; }
@@ -177,11 +194,25 @@
             var el = document.getElementById('content');
             try {
                 var text = b64Decode(b64Text);
+                var htmlStr = "";
                 if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                    el.innerHTML = marked.parse(text);
+                    htmlStr = marked.parse(text);
                 } else {
-                    el.innerHTML = fallbackParse(text);
+                    htmlStr = fallbackParse(text);
                 }
+
+                // 处理完整的 think 标签
+                htmlStr = htmlStr.replace(/<think>([\s\S]*?)<\/think>/g, '<details class="think-box"><summary>思考过程</summary><div class="think-content">$1</div></details>');
+                
+                // 处理流式生成中未闭合的 think 标签
+                if (htmlStr.includes('<think>') && !htmlStr.includes('</think>')) {
+                    var parts = htmlStr.split('<think>');
+                    var before = parts[0];
+                    var thinkContent = parts.slice(1).join('<think>');
+                    htmlStr = before + '<details class="think-box" open><summary>思考过程 (思考中...)</summary><div class="think-content">' + thinkContent + '</div></details>';
+                }
+
+                el.innerHTML = htmlStr;
             } catch(e) {
                 el.innerText = 'Render error: ' + e.message;
             }

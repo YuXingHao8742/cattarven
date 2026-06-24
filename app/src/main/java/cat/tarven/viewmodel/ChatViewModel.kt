@@ -14,6 +14,7 @@ import cat.tarven.data.model.Character
 import cat.tarven.data.model.ChatMessage
 import cat.tarven.data.model.Conversation
 import cat.tarven.data.model.MessageRole
+import cat.tarven.data.model.MessageSwipe
 import cat.tarven.data.repository.ChatRepository
 import cat.tarven.data.repository.LabRepository
 import cat.tarven.data.repository.SettingsRepository
@@ -83,15 +84,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun setGeneratingStatus(generating: Boolean) {
+        isGenerating = generating
+        if (generating) {
+            cat.tarven.service.GenerationService.start(getApplication())
+        } else {
+            cat.tarven.service.GenerationService.stop(getApplication())
+        }
+    }
+
     /**
-     * 切换备用开场白
+     * 切换 Swipe（翻页）
      */
-    fun switchGreeting(messageId: String, newIndex: Int) {
-        val character = currentCharacter ?: return
+    fun switchSwipe(messageId: String, newIndex: Int) {
         val index = messages.indexOfFirst { it.id == messageId }
         if (index != -1) {
             val msg = messages[index]
-            if (msg.alternateGreetings.isNotEmpty() && newIndex in msg.alternateGreetings.indices) {
+            if (msg.swipes.isNotEmpty() && newIndex in msg.swipes.indices) {
+                // 更新当前索引，并同步 content（兼容旧代码）
+                messages[index] = msg.copy(
+                    currentSwipeIndex = newIndex,
+                    content = msg.swipes[newIndex].content
+                )
+                saveMessages()
+            } else if (msg.alternateGreetings.isNotEmpty() && newIndex in msg.alternateGreetings.indices) {
+                // 兼容旧版主开场白切换
+                val character = currentCharacter ?: return
                 messages[index] = msg.copy(
                     content = substituteParams(msg.alternateGreetings[newIndex], character),
                     currentGreetingIndex = newIndex
@@ -124,7 +142,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         saveMessages()
 
         // 开始生成
-        isGenerating = true
+        setGeneratingStatus(true)
         errorMessage = null
 
         // 构建 API 消息列表
@@ -138,7 +156,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             topP = settingsRepo.topP.toDouble(),
             frequencyPenalty = settingsRepo.frequencyPenalty.toDouble(),
             presencePenalty = settingsRepo.presencePenalty.toDouble(),
-            stream = settingsRepo.streamEnabled
+            stream = settingsRepo.streamEnabled,
+            n = settingsRepo.autoSwipeCount
         )
 
         // 拦截并保存日志到实验室
@@ -162,16 +181,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 流式请求
      */
-    private fun streamResponse(request: ChatCompletionRequest, character: Character) {
-        // 创建一个占位的 assistant 消息，这里的 name 仅用于 UI 显示
-        val assistantMessage = ChatMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            name = character.name,
-            isStreaming = true
-        )
-        messages.add(assistantMessage)
-        val msgIndex = messages.lastIndex
+    private fun streamResponse(request: ChatCompletionRequest, character: Character, targetMessageIndex: Int? = null) {
+        val msgIndex: Int
+        if (targetMessageIndex == null) {
+            val assistantMessage = ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content = "",
+                name = character.name,
+                isStreaming = true,
+                swipes = listOf(MessageSwipe(content = "")),
+                currentSwipeIndex = 0
+            )
+            messages.add(assistantMessage)
+            msgIndex = messages.lastIndex
+        } else {
+            msgIndex = targetMessageIndex
+            val msg = messages[msgIndex]
+            val newSwipes = msg.swipes.toMutableList()
+            newSwipes.add(MessageSwipe(content = ""))
+            messages[msgIndex] = msg.copy(
+                isStreaming = true,
+                swipes = newSwipes,
+                currentSwipeIndex = newSwipes.lastIndex,
+                content = "" // 主 content 置空或依赖 displayContent
+            )
+        }
 
         streamingJob = viewModelScope.launch {
             val contentBuilder = StringBuilder()
@@ -200,13 +234,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         isStreaming = false
                     )
                 }
-                isGenerating = false
+                setGeneratingStatus(false)
                 saveMessages()
             }
             .collect { token ->
                 contentBuilder.append(token)
-                messages[msgIndex] = messages[msgIndex].copy(
-                    content = contentBuilder.toString()
+                val snapshotMsg = messages[msgIndex]
+                val swipesList = snapshotMsg.swipes.toMutableList()
+                val activeSwipeIdx = snapshotMsg.currentSwipeIndex
+                if (activeSwipeIdx in swipesList.indices) {
+                    swipesList[activeSwipeIdx] = swipesList[activeSwipeIdx].copy(content = contentBuilder.toString())
+                }
+                messages[msgIndex] = snapshotMsg.copy(
+                    content = contentBuilder.toString(), // 兼容旧版
+                    swipes = swipesList
                 )
             }
 
@@ -216,7 +257,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     isStreaming = false
                 )
             }
-            isGenerating = false
+            setGeneratingStatus(false)
             saveMessages()
         }
     }
@@ -224,7 +265,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 非流式请求
      */
-    private fun nonStreamResponse(request: ChatCompletionRequest, character: Character) {
+    private fun nonStreamResponse(request: ChatCompletionRequest, character: Character, targetMessageIndex: Int? = null) {
         viewModelScope.launch {
             val safeRequest = request.copy(
                 messages = request.messages.map { it.copy(name = it.name?.let { n -> sanitizeApiName(n) }) }
@@ -239,19 +280,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             result.fold(
                 onSuccess = { content ->
-                    val assistantMessage = ChatMessage(
-                        role = MessageRole.ASSISTANT,
-                        content = content,
-                        name = character.name
-                    )
-                    messages.add(assistantMessage)
+                    if (targetMessageIndex == null) {
+                        val assistantMessage = ChatMessage(
+                            role = MessageRole.ASSISTANT,
+                            content = content,
+                            name = character.name,
+                            swipes = listOf(MessageSwipe(content = content)),
+                            currentSwipeIndex = 0
+                        )
+                        messages.add(assistantMessage)
+                    } else {
+                        val msgIndex = targetMessageIndex
+                        val msg = messages[msgIndex]
+                        val newSwipes = msg.swipes.toMutableList()
+                        newSwipes.add(MessageSwipe(content = content))
+                        messages[msgIndex] = msg.copy(
+                            swipes = newSwipes,
+                            currentSwipeIndex = newSwipes.lastIndex,
+                            content = content // 同步主 content
+                        )
+                    }
                 },
                 onFailure = { error ->
                     errorMessage = "生成失败: ${error.message}"
                 }
             )
 
-            isGenerating = false
+            setGeneratingStatus(false)
             saveMessages()
         }
     }
@@ -268,11 +323,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * ⑦ 历史对话
      * ⑧ 写作规则 (其 role)
      */
-    private fun buildApiMessages(character: Character): List<ApiMessage> {
+    private fun buildApiMessages(character: Character, maxIndex: Int? = null): List<ApiMessage> {
         val apiMessages = mutableListOf<ApiMessage>()
 
+        // 截取目标范围内的历史消息
+        val messagesToInclude = if (maxIndex != null) messages.subList(0, maxIndex + 1) else messages.toList()
+
         // --- 收集激活的世界书条目 ---
-        val recentMessagesText = messages.takeLast(10).joinToString(" ") { it.content }
+        val recentMessagesText = messagesToInclude.takeLast(10).joinToString(" ") { it.content }
         val wiEntries = character.worldInfo?.entries ?: emptyList()
         val activatedEntries = wiEntries.filter { entry ->
             !entry.disable && (entry.constant || (entry.keys.isNotEmpty() && entry.keys.any { key ->
@@ -321,8 +379,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // ⑦ 历史对话
-        val historyMessages = messages.filter { !it.isStreaming }.map {
-            ApiMessage(role = it.role.value, content = it.content)
+        val historyMessages = messagesToInclude.filter { !it.isStreaming }.map {
+            ApiMessage(role = it.role.value, content = it.displayContent)
         }
         apiMessages.addAll(historyMessages)
 
@@ -364,7 +422,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopGenerating() {
         streamingJob?.cancel()
         streamingJob = null
-        isGenerating = false
+        setGeneratingStatus(false)
 
         // 如果最后一条消息是流式的，标记为完成
         if (messages.isNotEmpty() && messages.last().isStreaming) {
@@ -407,25 +465,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (index < 0) return
 
         // 如果是最后一条消息，且它是 AI 消息，则等同于 regenerateLastResponse
-        if (index == messages.lastIndex && messages[index].role == MessageRole.ASSISTANT) {
-            regenerateLastResponse()
-            return
-        }
-
-        // 如果重试的是以前的消息，我们要删除从这条消息开始的所有后续消息
+        // 不再删除该消息，而是直接作为 target 追加 Swipe
         if (messages[index].role == MessageRole.ASSISTANT) {
-            val messagesToRemove = messages.size - index
+            // 删除这条消息之后的所有消息，不删除本消息
+            val messagesToRemove = messages.lastIndex - index
             for (i in 0 until messagesToRemove) {
                 messages.removeAt(messages.lastIndex)
             }
             saveMessages()
+
             // 重新触发生成
             val lastUserIndex = messages.indexOfLast { it.role == MessageRole.USER }
             if (lastUserIndex >= 0) {
-                isGenerating = true
+                setGeneratingStatus(true)
                 errorMessage = null
                 val character = currentCharacter ?: return
-                val apiMessages = buildApiMessages(character)
+                // 构建发送历史时不包含当前正在重试的 assistant 消息
+                // 所以我们截取 messages 到 lastUserIndex 即可
+                val apiMessages = buildApiMessages(character, lastUserIndex)
                 val request = ChatCompletionRequest(
                     model = settingsRepo.modelName,
                     messages = apiMessages,
@@ -434,13 +491,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     topP = settingsRepo.topP.toDouble(),
                     frequencyPenalty = settingsRepo.frequencyPenalty.toDouble(),
                     presencePenalty = settingsRepo.presencePenalty.toDouble(),
-                    stream = settingsRepo.streamEnabled
+                    stream = settingsRepo.streamEnabled,
+                    n = settingsRepo.autoSwipeCount
                 )
                 labRepository.saveLog(character.name, request)
                 if (settingsRepo.streamEnabled) {
-                    streamResponse(request, character)
+                    streamResponse(request, character, targetMessageIndex = index)
                 } else {
-                    nonStreamResponse(request, character)
+                    nonStreamResponse(request, character, targetMessageIndex = index)
                 }
             }
         }
