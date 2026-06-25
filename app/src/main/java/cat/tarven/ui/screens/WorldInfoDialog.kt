@@ -116,12 +116,26 @@ fun WorldInfoDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
+                    val sortedEntries = remember(worldInfo.entries) {
+                        worldInfo.entries.sortedWith(compareBy {
+                            when (it.tag) {
+                                "main_setting" -> 0
+                                "writing_rules" -> 1
+                                else -> 2
+                            }
+                        })
+                    }
+
                     LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(worldInfo.entries) { entry ->
+                        items(sortedEntries, key = { it.id }) { entry ->
                             WorldInfoListItem(
                                 entry = entry,
                                 onEdit = { editingEntry = entry },
-                                onDelete = { onUpdate(WorldInfo(worldInfo.entries.filter { it.id != entry.id })) }
+                                onDelete = { onUpdate(WorldInfo(worldInfo.entries.filter { it.id != entry.id })) },
+                                onOrderChange = { newOrder ->
+                                    val newEntries = worldInfo.entries.map { if (it.id == entry.id) it.copy(insertionOrder = newOrder) else it }
+                                    onUpdate(WorldInfo(newEntries))
+                                }
                             )
                         }
                     }
@@ -143,7 +157,8 @@ fun WorldInfoDialog(
 private fun WorldInfoListItem(
     entry: WorldInfoEntry,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOrderChange: (Int) -> Unit
 ) {
     val tagLabel = when (entry.tag) {
         "main_setting" -> "📌 主要设定"
@@ -155,6 +170,8 @@ private fun WorldInfoListItem(
         "assistant" -> "🤖"
         else -> "⚙️"
     }
+
+    var orderText by remember(entry.insertionOrder) { mutableStateOf(entry.insertionOrder.toString()) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -188,6 +205,33 @@ private fun WorldInfoListItem(
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
+            
+            // 排序序号快速编辑
+            androidx.compose.foundation.text.BasicTextField(
+                value = orderText,
+                onValueChange = { 
+                    val filtered = it.filter { c -> c.isDigit() }
+                    orderText = filtered
+                    val newOrder = filtered.toIntOrNull() ?: 0
+                    if (newOrder != entry.insertionOrder) {
+                        onOrderChange(newOrder)
+                    }
+                },
+                modifier = Modifier
+                    .width(42.dp)
+                    .padding(end = 8.dp)
+                    .background(MaterialTheme.inputBackground, RoundedCornerShape(4.dp))
+                    .padding(vertical = 6.dp, horizontal = 2.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 13.sp, 
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(TavernPurple)
+            )
+
             IconButton(onClick = onEdit) {
                 Icon(Icons.Default.Edit, "编辑", tint = MaterialTheme.colorScheme.onSurface)
             }

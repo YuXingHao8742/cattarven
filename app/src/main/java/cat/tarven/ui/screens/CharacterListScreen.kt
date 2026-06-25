@@ -222,15 +222,23 @@ fun CharacterListScreen(
         showDeleteDialog?.let { convToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("删除对话", color = MaterialTheme.colorScheme.onSurface) },
-                text = { Text("确定要删除与「${convToDelete.character.name}」的此段对话吗？此操作不可恢复。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                title = { Text("删除操作", color = MaterialTheme.colorScheme.onSurface) },
+                text = { Text("请选择要执行的操作：\n\n1. 仅删除当前这段历史对话\n2. 彻底删除角色卡「${convToDelete.character.name}」及其所有数据", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 containerColor = MaterialTheme.colorScheme.surface,
                 confirmButton = {
-                    TextButton(onClick = {
-                        characterViewModel.deleteConversation(convToDelete.conversation.characterId, convToDelete.conversation.id)
-                        showDeleteDialog = null
-                    }) {
-                        Text("删除", color = ErrorRed)
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = {
+                            characterViewModel.deleteConversation(convToDelete.conversation.characterId, convToDelete.conversation.id)
+                            showDeleteDialog = null
+                        }) {
+                            Text("仅删除当前对话", color = ErrorRed)
+                        }
+                        TextButton(onClick = {
+                            characterViewModel.deleteCharacter(convToDelete.character.id)
+                            showDeleteDialog = null
+                        }) {
+                            Text("彻底删除角色卡", color = ErrorRed)
+                        }
                     }
                 },
                 dismissButton = {
