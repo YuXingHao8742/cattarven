@@ -72,6 +72,7 @@ fun ChatBubble(
     onDelete: () -> Unit = {},
     onEdit: (String) -> Unit = {},
     onRegenerate: () -> Unit = {},
+    onReincarnate: (String) -> Unit = {},
     onSwitchGreeting: ((Int) -> Unit)? = null,
     isLastAssistant: Boolean = false,
     modifier: Modifier = Modifier
@@ -189,6 +190,14 @@ fun ChatBubble(
                         color = MaterialTheme.textMuted,
                         fontStyle = FontStyle.Italic
                     )
+                } else if (message.propName != null) {
+                    Text(
+                        text = "【道具】${message.propName}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = chatFontSize.sp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        fontStyle = FontStyle.Italic
+                    )
                 } else if (enableHtmlRendering && !isSystem) {
                     HtmlText(
                         html = processedContent,
@@ -277,6 +286,9 @@ fun ChatBubble(
                         IconButton(onClick = onRegenerate, modifier = Modifier.size(24.dp)) {
                             Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                         }
+                    }
+                    IconButton(onClick = { onReincarnate(message.displayContent) }, modifier = Modifier.size(24.dp)) {
+                        Text("🌟", fontSize = 12.sp)
                     }
                 }
             }

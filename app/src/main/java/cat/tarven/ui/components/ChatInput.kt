@@ -36,16 +36,24 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import cat.tarven.ui.theme.*
 
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import cat.tarven.data.repository.PropItem
+import androidx.compose.material.icons.filled.Backpack
+
 @Composable
 fun ChatInput(
     onSend: (String) -> Unit,
+    onSendProp: (PropItem) -> Unit,
     onStop: () -> Unit,
     onNewConversation: () -> Unit,
     onRegenerate: () -> Unit,
     isGenerating: Boolean,
+    props: List<PropItem>,
     modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf("") }
+    var showPropsMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier
@@ -95,6 +103,44 @@ fun ChatInput(
                 innerTextField()
             }
         )
+
+        // 道具按钮
+        androidx.compose.foundation.layout.Box {
+            IconButton(
+                onClick = { showPropsMenu = true },
+                modifier = Modifier
+                    .padding(start = 4.dp, bottom = 4.dp)
+                    .size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Backpack,
+                    contentDescription = "快捷道具",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            DropdownMenu(
+                expanded = showPropsMenu,
+                onDismissRequest = { showPropsMenu = false },
+                modifier = Modifier.background(MaterialTheme.surfaceElevated)
+            ) {
+                if (props.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("暂无道具，请在设置中添加", color = MaterialTheme.textMuted) },
+                        onClick = { showPropsMenu = false }
+                    )
+                } else {
+                    props.forEach { prop ->
+                        DropdownMenuItem(
+                            text = { Text(prop.name, color = MaterialTheme.colorScheme.onSurface) },
+                            onClick = {
+                                onSendProp(prop)
+                                showPropsMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         // 发送/停止按钮
         AnimatedVisibility(

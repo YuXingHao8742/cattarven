@@ -205,6 +205,36 @@ class SettingsRepository(context: Context) {
     fun saveRegexRules(rules: List<cat.tarven.data.model.RegexRule>) {
         prefs.edit { putString(KEY_REGEX_RULES, gson.toJson(rules)) }
     }
+
+    // --- Props 管理 ---
+    private val KEY_PROP_ITEMS = "prop_items"
+
+    fun getPropItems(): List<PropItem> {
+        val json = prefs.getString(KEY_PROP_ITEMS, null)
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val type = object : com.google.gson.reflect.TypeToken<List<PropItem>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun savePropItem(prop: PropItem) {
+        val current = getPropItems().toMutableList()
+        val index = current.indexOfFirst { it.id == prop.id }
+        if (index >= 0) {
+            current[index] = prop
+        } else {
+            current.add(prop)
+        }
+        prefs.edit { putString(KEY_PROP_ITEMS, gson.toJson(current)) }
+    }
+
+    fun deletePropItem(id: String) {
+        val current = getPropItems().filter { it.id != id }
+        prefs.edit { putString(KEY_PROP_ITEMS, gson.toJson(current)) }
+    }
 }
 
 data class ApiPreset(
@@ -213,4 +243,10 @@ data class ApiPreset(
     val apiUrl: String,
     val apiKey: String,
     val modelName: String = ""
+)
+
+data class PropItem(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val name: String,
+    val content: String
 )

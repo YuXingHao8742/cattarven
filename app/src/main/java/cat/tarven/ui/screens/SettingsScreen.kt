@@ -82,6 +82,11 @@ fun SettingsScreen(
     var regexPatternInput by remember { mutableStateOf("") }
     var regexReplacementInput by remember { mutableStateOf("") }
 
+    var showPropDialog by remember { mutableStateOf(false) }
+    var editingProp by remember { mutableStateOf<cat.tarven.data.repository.PropItem?>(null) }
+    var propNameInput by remember { mutableStateOf("") }
+    var propContentInput by remember { mutableStateOf("") }
+
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = TavernPurple,
         unfocusedBorderColor = BorderColor,
@@ -689,6 +694,62 @@ fun SettingsScreen(
                 Text("+ 添加新规则")
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = DividerColor)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // === 快捷道具管理 ===
+            SectionHeader("🎒 快捷道具管理")
+            
+            Text(
+                text = "你可以预设一些常用的长文本（如总结、要求等），然后在聊天界面一键发送。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.textMuted,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            settingsViewModel.propItems.forEach { prop ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = prop.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Text(text = prop.content, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.textMuted, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = { 
+                        editingProp = prop
+                        propNameInput = prop.name
+                        propContentInput = prop.content
+                        showPropDialog = true 
+                    }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { settingsViewModel.deletePropItem(prop.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorRed)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            OutlinedButton(
+                onClick = { 
+                    editingProp = null
+                    propNameInput = ""
+                    propContentInput = ""
+                    showPropDialog = true 
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TavernPurpleLight),
+                border = BorderStroke(1.dp, TavernPurpleDark)
+            ) {
+                Text("+ 添加新道具")
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -791,6 +852,69 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRegexDialog = false }) {
+                    Text("取消", color = MaterialTheme.textMuted)
+                }
+            },
+            containerColor = MaterialTheme.surfaceElevated,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
+    if (showPropDialog) {
+        AlertDialog(
+            onDismissRequest = { showPropDialog = false },
+            title = { Text(if (editingProp == null) "添加新道具" else "编辑道具", color = MaterialTheme.colorScheme.onSurface) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = propNameInput,
+                        onValueChange = { propNameInput = it },
+                        label = { Text("道具名称") },
+                        placeholder = { Text("例如：总结", color = MaterialTheme.textMuted) },
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = propContentInput,
+                        onValueChange = { propContentInput = it },
+                        label = { Text("道具发送内容") },
+                        placeholder = { Text("例如：请总结之前的剧情...", color = MaterialTheme.textMuted) },
+                        minLines = 3,
+                        maxLines = 8,
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (propNameInput.isNotBlank() && propContentInput.isNotBlank()) {
+                            if (editingProp == null) {
+                                settingsViewModel.savePropItem(
+                                    cat.tarven.data.repository.PropItem(
+                                        name = propNameInput,
+                                        content = propContentInput
+                                    )
+                                )
+                            } else {
+                                settingsViewModel.savePropItem(
+                                    editingProp!!.copy(
+                                        name = propNameInput,
+                                        content = propContentInput
+                                    )
+                                )
+                            }
+                            showPropDialog = false
+                        }
+                    }
+                ) {
+                    Text("保存", color = TavernPurpleLight)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPropDialog = false }) {
                     Text("取消", color = MaterialTheme.textMuted)
                 }
             },

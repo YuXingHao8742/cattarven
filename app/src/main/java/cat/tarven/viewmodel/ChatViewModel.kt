@@ -120,11 +120,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 发送用户消息并请求 AI 回复
+     * 发送消息
      */
-    fun sendMessage(userInput: String) {
-        if (userInput.isBlank() || isGenerating) return
-
+    fun sendMessage(content: String, propName: String? = null) {
         val character = currentCharacter ?: return
+        if (content.isBlank() || isGenerating) return
 
         if (!settingsRepo.isApiConfigured()) {
             errorMessage = "请先在设置中配置 API 地址、密钥和模型名称"
@@ -134,8 +134,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // 添加用户消息
         val userMessage = ChatMessage(
             role = MessageRole.USER,
-            content = userInput,
-            name = settingsRepo.userName
+            content = content,
+            name = settingsRepo.userName.takeIf { it.isNotBlank() } ?: "User",
+            propName = propName
         )
         messages.add(userMessage)
         saveMessages()
@@ -574,6 +575,44 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             messages[index] = msg.copy(content = newContent, swipes = updatedSwipes)
             saveMessages()
         }
+    }
+
+    /**
+     * 一键转生：开一个新档，并用指定的文本作为用户的第一句话发送
+     */
+    fun reincarnate(content: String) {
+        val character = currentCharacter ?: return
+        
+        // 1. 创建新对话
+        val newConv = chatRepo.saveConversation(
+            Conversation(
+                characterId = character.id,
+                title = "与 ${character.name} 的转生对话"
+            )
+        )
+        currentConversation = newConv
+        messages.clear()
+        
+        // 2. 添加开场白
+        val allGreetings = buildList {
+            if (character.firstMessage.isNotBlank()) add(character.firstMessage)
+            addAll(character.alternateGreetings)
+        }.distinct()
+        
+        if (allGreetings.isNotEmpty()) {
+            val firstMsg = ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content = substituteParams(allGreetings.first(), character),
+                name = character.name,
+                alternateGreetings = allGreetings,
+                currentGreetingIndex = 0
+            )
+            messages.add(firstMsg)
+            saveMessages()
+        }
+        
+        // 3. 作为用户发送总结内容并触发 AI 生成
+        sendMessage(content)
     }
 
     /**

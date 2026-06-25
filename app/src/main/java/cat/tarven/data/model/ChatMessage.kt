@@ -20,7 +20,8 @@ data class ChatMessage(
     val alternateGreetings: List<String> = emptyList(), // 保留兼容旧版
     val currentGreetingIndex: Int = 0,
     val swipes: List<MessageSwipe> = emptyList(),
-    val currentSwipeIndex: Int = 0
+    val currentSwipeIndex: Int = 0,
+    val propName: String? = null
 ) {
     // 动态获取当前展示的回复内容
     val displayContent: String

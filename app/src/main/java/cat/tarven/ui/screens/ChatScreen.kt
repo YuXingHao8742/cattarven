@@ -300,6 +300,9 @@ fun ChatScreen(
                                 editingMessageContent = it 
                             },
                             onRegenerate = { chatViewModel.regenerateMessage(message.id) },
+                            onReincarnate = { content ->
+                                chatViewModel.reincarnate(content)
+                            },
                             onSwitchGreeting = { newIdx -> chatViewModel.switchSwipe(message.id, newIdx) }
                         )
                     }
@@ -354,10 +357,12 @@ fun ChatScreen(
         // 输入框
         ChatInput(
             onSend = { text -> chatViewModel.sendMessage(text) },
+            onSendProp = { prop -> chatViewModel.sendMessage(prop.content, propName = prop.name) },
             onStop = { chatViewModel.stopGenerating() },
             onNewConversation = { chatViewModel.newConversation() },
             onRegenerate = { chatViewModel.regenerateLastResponse() },
-            isGenerating = chatViewModel.isGenerating
+            isGenerating = chatViewModel.isGenerating,
+            props = settingsViewModel.propItems
         )
     }
 

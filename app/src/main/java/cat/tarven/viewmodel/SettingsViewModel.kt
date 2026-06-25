@@ -74,9 +74,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var regexRules by mutableStateOf<List<cat.tarven.data.model.RegexRule>>(emptyList())
         private set
 
+    // Props
+    var propItems by mutableStateOf<List<cat.tarven.data.repository.PropItem>>(emptyList())
+        private set
+
     init {
-        loadApiPresets()
-        loadRegexRules()
+        loadSettings()
+        apiPresets = repository.getApiPresets()
+        regexRules = repository.getRegexRules()
+        propItems = repository.getPropItems()
+    }
+
+    private fun loadSettings() {
+        // Placeholder for future general settings loading if needed
     }
 
     private fun loadApiPresets() {
@@ -270,5 +280,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val newList = regexRules.map { if (it.id == id) it.copy(isEnabled = isEnabled) else it }
         repository.saveRegexRules(newList)
         regexRules = newList
+    }
+
+    // --- Props 管理 ---
+    fun savePropItem(prop: cat.tarven.data.repository.PropItem) {
+        repository.savePropItem(prop)
+        propItems = repository.getPropItems()
+    }
+
+    fun deletePropItem(id: String) {
+        repository.deletePropItem(id)
+        propItems = repository.getPropItems()
     }
 }
