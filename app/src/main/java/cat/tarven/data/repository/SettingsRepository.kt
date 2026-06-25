@@ -2,7 +2,9 @@ package cat.tarven.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.core.content.edit
+import java.io.File
 
 /**
  * 设置数据仓库 — 管理 API 连接和应用设置
@@ -27,6 +29,13 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_SWIPE_COUNT = "auto_swipe_count"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_PERSONA = "user_persona"
+
+        // 显示与外观
+        private const val KEY_IS_DARK_MODE = "is_dark_mode"
+        private const val KEY_APP_FONT_SIZE = "app_font_size"
+        private const val KEY_CHAT_FONT_SIZE = "chat_font_size"
+        private const val KEY_BG_IMAGE_PATH = "background_image_path"
+        private const val KEY_BG_BLUR_RADIUS = "background_blur_radius"
 
         private const val DEFAULT_SYSTEM_PROMPT =
             "Write {{char}}'s next reply in a fictional chat between {{char}} and {{user}}. " +
@@ -89,6 +98,57 @@ class SettingsRepository(context: Context) {
     var userPersona: String
         get() = prefs.getString(KEY_USER_PERSONA, "") ?: ""
         set(value) = prefs.edit { putString(KEY_USER_PERSONA, value) }
+
+    // --- 显示与外观 ---
+    var isDarkMode: Boolean
+        get() = prefs.getBoolean(KEY_IS_DARK_MODE, true)
+        set(value) = prefs.edit { putBoolean(KEY_IS_DARK_MODE, value) }
+
+    var appFontSize: Float
+        get() = prefs.getFloat(KEY_APP_FONT_SIZE, 14f)
+        set(value) = prefs.edit { putFloat(KEY_APP_FONT_SIZE, value) }
+
+    var chatFontSize: Float
+        get() = prefs.getFloat(KEY_CHAT_FONT_SIZE, 15f)
+        set(value) = prefs.edit { putFloat(KEY_CHAT_FONT_SIZE, value) }
+
+    var backgroundImagePath: String
+        get() = prefs.getString(KEY_BG_IMAGE_PATH, "") ?: ""
+        set(value) = prefs.edit { putString(KEY_BG_IMAGE_PATH, value) }
+
+    var backgroundBlurRadius: Float
+        get() = prefs.getFloat(KEY_BG_BLUR_RADIUS, 10f)
+        set(value) = prefs.edit { putFloat(KEY_BG_BLUR_RADIUS, value) }
+
+    /**
+     * 将用户选择的图片复制到 App 内部缓存目录
+     */
+    fun copyImageToCache(context: Context, sourceUri: Uri): String? {
+        return try {
+            val bgDir = File(context.filesDir, "backgrounds")
+            if (!bgDir.exists()) bgDir.mkdirs()
+            val destFile = File(bgDir, "custom_bg_${System.currentTimeMillis()}.jpg")
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                destFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            destFile.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 清除缓存的背景图片
+     */
+    fun clearBackgroundImage(context: Context) {
+        val path = backgroundImagePath
+        if (path.isNotBlank()) {
+            File(path).delete()
+        }
+        backgroundImagePath = ""
+    }
 
     /**
      * 检查 API 配置是否完整

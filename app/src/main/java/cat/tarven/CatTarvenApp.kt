@@ -1,8 +1,18 @@
 package cat.tarven
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -15,9 +25,12 @@ import cat.tarven.ui.screens.CharacterEditScreen
 import cat.tarven.ui.screens.CharacterListScreen
 import cat.tarven.ui.screens.ChatScreen
 import cat.tarven.ui.screens.SettingsScreen
+import cat.tarven.ui.theme.CattarvenTheme
 import cat.tarven.viewmodel.CharacterViewModel
 import cat.tarven.viewmodel.ChatViewModel
 import cat.tarven.viewmodel.SettingsViewModel
+import coil.compose.rememberAsyncImagePainter
+import java.io.File
 
 @Composable
 fun CatTarvenApp() {
@@ -29,80 +42,117 @@ fun CatTarvenApp() {
     val context = LocalContext.current
     val characterRepo = remember { CharacterRepository(context) }
 
-    NavHost(
-        navController = navController,
-        startDestination = Screen.CharacterList.route
+    CattarvenTheme(
+        darkTheme = settingsViewModel.isDarkMode,
+        appFontSize = settingsViewModel.appFontSize
     ) {
-        // 角色列表
-        composable(Screen.CharacterList.route) {
-            CharacterListScreen(
-                characterViewModel = characterViewModel,
-                onCharacterClick = { character ->
-                    characterViewModel.selectCharacter(character)
-                    chatViewModel.initChat(character)
-                    navController.navigate(Screen.Chat.createRoute(character.id))
-                },
-                onCreateCharacter = {
-                    characterViewModel.startEditCharacter(null)
-                    navController.navigate(Screen.CharacterEdit.createRoute("new"))
-                },
-                onSettings = {
-                    navController.navigate(Screen.Settings.route)
-                },
-                onLabClick = {
-                    navController.navigate(Screen.Lab.route)
-                }
-            )
-        }
-
-        // 角色编辑
-        composable(
-            route = Screen.CharacterEdit.route,
-            arguments = listOf(
-                navArgument("characterId") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val characterId = backStackEntry.arguments?.getString("characterId") ?: "new"
-            val character = if (characterId == "new") null else characterViewModel.characters.find { it.id == characterId }
-
-            CharacterEditScreen(
-                character = character,
-                characterViewModel = characterViewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        // 聊天
-        composable(
-            route = Screen.Chat.route,
-            arguments = listOf(
-                navArgument("characterId") { type = NavType.StringType }
-            )
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
         ) {
-            ChatScreen(
-                chatViewModel = chatViewModel,
-                settingsViewModel = settingsViewModel,
-                characterViewModel = characterViewModel,
-                onBack = { navController.popBackStack() },
-                onSettings = { navController.navigate(Screen.Settings.route) },
-                onEditCharacter = { charId -> navController.navigate(Screen.CharacterEdit.createRoute(charId)) }
-            )
-        }
+            // 背景图片层
+            if (settingsViewModel.backgroundImagePath.isNotBlank()) {
+                val bgFile = File(settingsViewModel.backgroundImagePath)
+                if (bgFile.exists()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(bgFile),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(settingsViewModel.backgroundBlurRadius.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                    // 半透明遮罩层，确保文字可读
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (settingsViewModel.isDarkMode)
+                                    Color.Black.copy(alpha = 0.55f)
+                                else
+                                    Color.White.copy(alpha = 0.55f)
+                            )
+                    )
+                }
+            }
 
-        // 设置
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                settingsViewModel = settingsViewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
+            // 主导航内容
+            NavHost(
+                navController = navController,
+                startDestination = Screen.CharacterList.route
+            ) {
+                // 角色列表
+                composable(Screen.CharacterList.route) {
+                    CharacterListScreen(
+                        characterViewModel = characterViewModel,
+                        onCharacterClick = { character ->
+                            characterViewModel.selectCharacter(character)
+                            chatViewModel.initChat(character)
+                            navController.navigate(Screen.Chat.createRoute(character.id))
+                        },
+                        onCreateCharacter = {
+                            characterViewModel.startEditCharacter(null)
+                            navController.navigate(Screen.CharacterEdit.createRoute("new"))
+                        },
+                        onSettings = {
+                            navController.navigate(Screen.Settings.route)
+                        },
+                        onLabClick = {
+                            navController.navigate(Screen.Lab.route)
+                        }
+                    )
+                }
 
-        // 实验室
-        composable(Screen.Lab.route) {
-            cat.tarven.ui.screens.LabScreen(
-                labViewModel = labViewModel,
-                onBack = { navController.popBackStack() }
-            )
+                // 角色编辑
+                composable(
+                    route = Screen.CharacterEdit.route,
+                    arguments = listOf(
+                        navArgument("characterId") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val characterId = backStackEntry.arguments?.getString("characterId") ?: "new"
+                    val character = if (characterId == "new") null else characterViewModel.characters.find { it.id == characterId }
+
+                    CharacterEditScreen(
+                        character = character,
+                        characterViewModel = characterViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // 聊天
+                composable(
+                    route = Screen.Chat.route,
+                    arguments = listOf(
+                        navArgument("characterId") { type = NavType.StringType }
+                    )
+                ) {
+                    ChatScreen(
+                        chatViewModel = chatViewModel,
+                        settingsViewModel = settingsViewModel,
+                        characterViewModel = characterViewModel,
+                        onBack = { navController.popBackStack() },
+                        onSettings = { navController.navigate(Screen.Settings.route) },
+                        onEditCharacter = { charId -> navController.navigate(Screen.CharacterEdit.createRoute(charId)) }
+                    )
+                }
+
+                // 设置
+                composable(Screen.Settings.route) {
+                    SettingsScreen(
+                        settingsViewModel = settingsViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // 实验室
+                composable(Screen.Lab.route) {
+                    cat.tarven.ui.screens.LabScreen(
+                        labViewModel = labViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
     }
 }

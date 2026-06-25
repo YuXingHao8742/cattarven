@@ -448,6 +448,124 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(color = DividerColor)
             Spacer(modifier = Modifier.height(16.dp))
+            
+            // === 显示与外观 ===
+            SectionHeader("🎨 显示与外观")
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 界面字号
+            Text(
+                text = "📐 界面字号: ${settingsViewModel.appFontSize.toInt()}sp",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            androidx.compose.material3.Slider(
+                value = settingsViewModel.appFontSize,
+                onValueChange = { settingsViewModel.updateAppFontSize(it) },
+                valueRange = 10f..22f,
+                steps = 11,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = TavernGold,
+                    activeTrackColor = TavernPurple,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+
+            // 聊天字号
+            Text(
+                text = "📝 聊天字号: ${settingsViewModel.chatFontSize.toInt()}px",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            androidx.compose.material3.Slider(
+                value = settingsViewModel.chatFontSize,
+                onValueChange = { settingsViewModel.updateChatFontSize(it) },
+                valueRange = 10f..24f,
+                steps = 13,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = TavernGold,
+                    activeTrackColor = TavernPurple,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+
+            // 深色模式
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🌙 深色模式",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = settingsViewModel.isDarkMode,
+                    onCheckedChange = { settingsViewModel.updateDarkMode(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = TavernGold,
+                        checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
+                        uncheckedThumbColor = MaterialTheme.textMuted,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+
+            // 背景图片
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val imagePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                uri?.let { settingsViewModel.setBackgroundFromUri(context, it) }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🖼️ 背景图片",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { imagePickerLauncher.launch(arrayOf("image/*")) }) {
+                    Text("选择图片", color = TavernPurpleLight)
+                }
+                if (settingsViewModel.backgroundImagePath.isNotEmpty()) {
+                    IconButton(onClick = { settingsViewModel.clearBackground(context) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "清除背景", tint = ErrorRed)
+                    }
+                }
+            }
+
+            // 背景模糊度 (仅当有背景图片时显示)
+            if (settingsViewModel.backgroundImagePath.isNotEmpty()) {
+                Text(
+                    text = "🔮 背景模糊度: ${settingsViewModel.backgroundBlurRadius.toInt()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                androidx.compose.material3.Slider(
+                    value = settingsViewModel.backgroundBlurRadius,
+                    onValueChange = { settingsViewModel.updateBackgroundBlurRadius(it) },
+                    valueRange = 0f..25f,
+                    steps = 24,
+                    colors = androidx.compose.material3.SliderDefaults.colors(
+                        thumbColor = TavernGold,
+                        activeTrackColor = TavernPurple,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = DividerColor)
+            Spacer(modifier = Modifier.height(16.dp))
 
             // === 用户设置 ===
             SectionHeader("用户设置")

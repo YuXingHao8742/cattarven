@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import cat.tarven.ui.theme.CattarvenTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -31,9 +30,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            CattarvenTheme {
-                CatTarvenApp()
-            }
+            CatTarvenApp()
         }
     }
 }

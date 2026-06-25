@@ -1,6 +1,8 @@
 package cat.tarven.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -42,6 +44,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var userPersona by mutableStateOf(repository.userPersona)
         private set
     var autoSwipeCount by mutableStateOf(repository.autoSwipeCount)
+        private set
+
+    // 显示与外观
+    var isDarkMode by mutableStateOf(repository.isDarkMode)
+        private set
+    var appFontSize by mutableStateOf(repository.appFontSize)
+        private set
+    var chatFontSize by mutableStateOf(repository.chatFontSize)
+        private set
+    var backgroundImagePath by mutableStateOf(repository.backgroundImagePath)
+        private set
+    var backgroundBlurRadius by mutableStateOf(repository.backgroundBlurRadius)
         private set
 
     // 连接测试状态
@@ -162,6 +176,46 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         userPersona = value
         repository.userPersona = value
     }
+
+    // --- 显示与外观 ---
+    fun updateDarkMode(value: Boolean) {
+        isDarkMode = value
+        repository.isDarkMode = value
+    }
+
+    fun updateAppFontSize(value: Float) {
+        appFontSize = value
+        repository.appFontSize = value
+    }
+
+    fun updateChatFontSize(value: Float) {
+        chatFontSize = value
+        repository.chatFontSize = value
+    }
+
+    fun updateBackgroundBlurRadius(value: Float) {
+        backgroundBlurRadius = value
+        repository.backgroundBlurRadius = value
+    }
+
+    fun setBackgroundFromUri(context: Context, uri: Uri) {
+        // 先清除旧的
+        if (backgroundImagePath.isNotBlank()) {
+            repository.clearBackgroundImage(context)
+        }
+        val cachedPath = repository.copyImageToCache(context, uri)
+        if (cachedPath != null) {
+            backgroundImagePath = cachedPath
+            repository.backgroundImagePath = cachedPath
+        }
+    }
+
+    fun clearBackground(context: Context) {
+        repository.clearBackgroundImage(context)
+        backgroundImagePath = ""
+    }
+
+
 
     fun testConnection() {
         if (apiUrl.isBlank() || apiKey.isBlank()) {

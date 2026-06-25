@@ -242,37 +242,10 @@ fun ChatScreen(
                 IconButton(onClick = onSettings) {
                     Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "设置", tint = MaterialTheme.colorScheme.onSurface)
                 }
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "菜单", tint = MaterialTheme.colorScheme.onSurface)
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("新建对话") },
-                        onClick = {
-                            chatViewModel.newConversation()
-                            showMenu = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.Add, null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("编辑角色") },
-                        onClick = {
-                            character?.id?.let { onEditCharacter(it) }
-                            showMenu = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.Edit, null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("重新生成") },
-                        onClick = {
-                            chatViewModel.regenerateLastResponse()
-                            showMenu = false
-                        },
-                        leadingIcon = { Icon(Icons.Default.Refresh, null) }
-                    )
+                IconButton(onClick = {
+                    character?.id?.let { onEditCharacter(it) }
+                }) {
+                    Icon(Icons.Default.Edit, contentDescription = "编辑角色", tint = MaterialTheme.colorScheme.onSurface)
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(

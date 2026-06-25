@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.foundation.layout.height
@@ -130,7 +131,7 @@ fun ChatBubble(
                     style = MaterialTheme.typography.labelMedium,
                     color = TavernPurpleLight,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+                    modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
                 )
             }
 
@@ -166,7 +167,7 @@ fun ChatBubble(
                             bottomEnd = 18.dp
                         )
                     )
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 val processedContent = remember(message.displayContent, regexRules) {
                     var text = message.displayContent
@@ -313,6 +314,16 @@ private fun formatTimestamp(timestamp: Long): String {
 fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color, fontSize: Float = 15f) {
     val htmlColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
     val fontSizePx = fontSize.toInt()
+    val localDensity = androidx.compose.ui.platform.LocalDensity.current
+    
+    // 缓存 WebView 高度，防止 LazyColumn 在快速滑动时因为 WebView 重新测量（高度瞬间为 0）而导致跳屏到顶部
+    var lastKnownHeight by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    
+    // 如果文本内容变化（例如 AI 正在生成，或用户编辑），重置缓存高度
+    androidx.compose.runtime.LaunchedEffect(html) {
+        lastKnownHeight = 0
+    }
+
     androidx.compose.ui.viewinterop.AndroidView(
         factory = { context ->
             android.webkit.WebView(context).apply {
@@ -349,6 +360,19 @@ fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color, fontSi
             """.trimIndent()
             webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
         },
-        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (lastKnownHeight > 0) {
+                    Modifier.heightIn(min = with(localDensity) { lastKnownHeight.toDp() })
+                } else {
+                    Modifier.wrapContentHeight()
+                }
+            )
+            .onSizeChanged { size ->
+                if (size.height > 0) {
+                    lastKnownHeight = size.height
+                }
+            }
     )
 }
