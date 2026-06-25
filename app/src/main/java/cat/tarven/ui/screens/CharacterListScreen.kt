@@ -58,7 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cat.tarven.data.model.Character
-import cat.tarven.ui.components.CharacterCard
+import cat.tarven.ui.components.ConversationCard
 import cat.tarven.ui.theme.*
 import cat.tarven.viewmodel.CharacterViewModel
 import kotlinx.coroutines.launch
@@ -73,8 +73,14 @@ fun CharacterListScreen(
     onLabClick: () -> Unit
 ) {
     val conversations = characterViewModel.filteredConversations
+    
+    // 每次回到主页都重新加载对话列表
+    LaunchedEffect(Unit) {
+        characterViewModel.loadConversations()
+    }
+    
     var showSearch by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf<Character?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<cat.tarven.data.model.ConversationWithCharacter?>(null) }
     var showFab by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -204,7 +210,7 @@ fun CharacterListScreen(
                             conversation = convWithChar.conversation,
                             character = convWithChar.character,
                             onClick = { onConversationClick(convWithChar) },
-                            onLongClick = { showDeleteDialog = convWithChar.character }, // 暂时保留长按删除整个角色
+                            onLongClick = { showDeleteDialog = convWithChar },
                             modifier = Modifier.animateItem()
                         )
                     }
@@ -213,15 +219,15 @@ fun CharacterListScreen(
         }
 
         // 删除确认对话框
-        showDeleteDialog?.let { charToDelete ->
+        showDeleteDialog?.let { convToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("删除角色", color = MaterialTheme.colorScheme.onSurface) },
-                text = { Text("确定要删除角色「${charToDelete.name}」及其所有聊天记录吗？此操作不可恢复。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                title = { Text("删除对话", color = MaterialTheme.colorScheme.onSurface) },
+                text = { Text("确定要删除与「${convToDelete.character.name}」的此段对话吗？此操作不可恢复。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 containerColor = MaterialTheme.colorScheme.surface,
                 confirmButton = {
                     TextButton(onClick = {
-                        characterViewModel.deleteCharacter(charToDelete.id)
+                        characterViewModel.deleteConversation(convToDelete.conversation.characterId, convToDelete.conversation.id)
                         showDeleteDialog = null
                     }) {
                         Text("删除", color = ErrorRed)

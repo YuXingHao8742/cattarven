@@ -287,8 +287,10 @@ fun ChatBubble(
                             Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                         }
                     }
-                    IconButton(onClick = { onReincarnate(message.displayContent) }, modifier = Modifier.size(24.dp)) {
-                        Text("🌟", fontSize = 12.sp)
+                    if (!isUser) {
+                        IconButton(onClick = { onReincarnate(message.displayContent) }, modifier = Modifier.size(24.dp)) {
+                            Text("🌟", fontSize = 12.sp)
+                        }
                     }
                 }
             }
