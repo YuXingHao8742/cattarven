@@ -37,13 +37,13 @@ fun LabScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            
     ) {
         TopAppBar(
-            title = { Text("🧪 实验室 - JSON 日志", color = TextPrimary) },
+            title = { Text("🧪 实验室 - JSON 日志", color = MaterialTheme.colorScheme.onSurface) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = TextPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.onSurface)
                 }
             },
             actions = {
@@ -54,12 +54,12 @@ fun LabScreen(
                     Icon(Icons.Default.Delete, "清空", tint = ErrorRed)
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
 
         if (logFiles.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Text("暂无 JSON 日志", color = TextMuted)
+                Text("暂无 JSON 日志", color = MaterialTheme.textMuted)
             }
         } else {
             LazyColumn(
@@ -78,13 +78,13 @@ fun LabScreen(
                                 selectedFileName = title
                                 selectedFileContent = log.requestJson
                             },
-                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.surfaceElevated)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(title, color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
+                            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("时间: $dateStr", color = TextMuted, style = MaterialTheme.typography.bodySmall)
-                            Text("大小: ${log.requestJson.length / 1024} KB", color = TextMuted, style = MaterialTheme.typography.bodySmall)
+                            Text("时间: $dateStr", color = MaterialTheme.textMuted, style = MaterialTheme.typography.bodySmall)
+                            Text("大小: ${log.requestJson.length / 1024} KB", color = MaterialTheme.textMuted, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -98,7 +98,7 @@ fun LabScreen(
         
         AlertDialog(
             onDismissRequest = { selectedFileContent = null },
-            title = { Text(selectedFileName, color = TextPrimary) },
+            title = { Text(selectedFileName, color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column(
                     modifier = Modifier
@@ -108,7 +108,7 @@ fun LabScreen(
                 ) {
                     Text(
                         text = selectedFileContent!!,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                     )
@@ -127,7 +127,7 @@ fun LabScreen(
                     Text("一键复制", color = TavernPurpleLight)
                 }
             },
-            containerColor = DarkSurfaceElevated,
+            containerColor = MaterialTheme.surfaceElevated,
             modifier = Modifier.fillMaxWidth(0.95f)
         )
     }

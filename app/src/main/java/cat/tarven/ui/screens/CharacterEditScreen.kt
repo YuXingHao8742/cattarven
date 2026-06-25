@@ -68,34 +68,34 @@ fun CharacterEditScreen(
         focusedBorderColor = TavernPurple,
         unfocusedBorderColor = BorderColor,
         focusedLabelColor = TavernPurpleLight,
-        unfocusedLabelColor = TextSecondary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         cursorColor = TavernPurple,
-        focusedTextColor = TextPrimary,
-        unfocusedTextColor = TextPrimary,
-        focusedContainerColor = InputBackground,
-        unfocusedContainerColor = InputBackground
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedContainerColor = MaterialTheme.inputBackground,
+        unfocusedContainerColor = MaterialTheme.inputBackground
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            
     ) {
         TopAppBar(
             title = {
                 Text(
                     text = if (isNew) "创建角色" else "编辑角色",
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = TextPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
 
         Column(
@@ -115,7 +115,7 @@ fun CharacterEditScreen(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape)
-                        .background(DarkSurfaceVariant)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { imagePicker.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
@@ -128,8 +128,8 @@ fun CharacterEditScreen(
                         )
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Image, contentDescription = "上传头像", tint = TextSecondary)
-                            Text("点击上传", color = TextSecondary, style = MaterialTheme.typography.labelSmall)
+                            Icon(Icons.Default.Image, contentDescription = "上传头像", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("点击上传", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -140,7 +140,7 @@ fun CharacterEditScreen(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("角色名称 *") },
-                placeholder = { Text("例：猫猫酒馆老板", color = TextMuted) },
+                placeholder = { Text("例：猫猫酒馆老板", color = MaterialTheme.textMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors,
@@ -154,7 +154,7 @@ fun CharacterEditScreen(
                 value = description,
                 onValueChange = { description = it },
                 label = { Text("角色描述") },
-                placeholder = { Text("描述角色的外貌、身份、背景故事等", color = TextMuted) },
+                placeholder = { Text("描述角色的外貌、身份、背景故事等", color = MaterialTheme.textMuted) },
                 minLines = 3,
                 maxLines = 8,
                 modifier = Modifier.fillMaxWidth(),
@@ -169,7 +169,7 @@ fun CharacterEditScreen(
                 value = firstMessage,
                 onValueChange = { firstMessage = it },
                 label = { Text("开场白") },
-                placeholder = { Text("角色的第一条消息，支持 {{user}} 和 {{char}}", color = TextMuted) },
+                placeholder = { Text("角色的第一条消息，支持 {{user}} 和 {{char}}", color = MaterialTheme.textMuted) },
                 minLines = 3,
                 maxLines = 10,
                 modifier = Modifier.fillMaxWidth(),
@@ -184,7 +184,7 @@ fun CharacterEditScreen(
                 value = systemPrompt,
                 onValueChange = { systemPrompt = it },
                 label = { Text("角色系统提示词（可选）") },
-                placeholder = { Text("角色专属的系统提示词，追加到全局提示词之后", color = TextMuted) },
+                placeholder = { Text("角色专属的系统提示词，追加到全局提示词之后", color = MaterialTheme.textMuted) },
                 minLines = 2,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth(),
@@ -222,7 +222,7 @@ fun CharacterEditScreen(
             Text(
                 text = "导入角色卡时会自动识别内嵌的正则规则。您也可以手动添加。",
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = MaterialTheme.textMuted,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -231,13 +231,13 @@ fun CharacterEditScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(DarkSurfaceVariant)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = rule.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Text(text = "Find: ${rule.pattern.take(60)}${if (rule.pattern.length > 60) "..." else ""}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Text(text = rule.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Text(text = "Find: ${rule.pattern.take(60)}${if (rule.pattern.length > 60) "..." else ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.textMuted)
                     }
                     Switch(
                         checked = rule.isEnabled,
@@ -247,8 +247,8 @@ fun CharacterEditScreen(
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = TavernGold,
                             checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
-                            uncheckedThumbColor = TextMuted,
-                            uncheckedTrackColor = DarkSurfaceVariant
+                            uncheckedThumbColor = MaterialTheme.textMuted,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                     IconButton(onClick = {
@@ -258,7 +258,7 @@ fun CharacterEditScreen(
                         regexReplacementInput = rule.replacement
                         showRegexDialog = true
                     }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = TextSecondary)
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = {
                         regexRules = regexRules.filter { it.id != rule.id }
@@ -312,7 +312,7 @@ fun CharacterEditScreen(
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = TavernPurple,
-                contentColor = TextPrimary,
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 disabledContainerColor = TavernPurpleDark.copy(alpha = 0.3f)
             ),
             shape = RoundedCornerShape(14.dp)
@@ -329,7 +329,7 @@ fun CharacterEditScreen(
     if (showRegexDialog) {
         AlertDialog(
             onDismissRequest = { showRegexDialog = false },
-            title = { Text(if (editingRegexRule == null) "添加正则规则" else "编辑正则规则", color = TextPrimary) },
+            title = { Text(if (editingRegexRule == null) "添加正则规则" else "编辑正则规则", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -383,12 +383,12 @@ fun CharacterEditScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRegexDialog = false }) {
-                    Text("取消", color = TextMuted)
+                    Text("取消", color = MaterialTheme.textMuted)
                 }
             },
-            containerColor = DarkSurfaceElevated,
-            titleContentColor = TextPrimary,
-            textContentColor = TextPrimary
+            containerColor = MaterialTheme.surfaceElevated,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 }

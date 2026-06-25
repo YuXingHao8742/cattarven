@@ -67,6 +67,7 @@ fun ChatBubble(
     characterAvatarUri: String? = null,
     enableHtmlRendering: Boolean = false,
     regexRules: List<cat.tarven.data.model.RegexRule> = emptyList(),
+    chatFontSize: Float = 15f,
     onDelete: () -> Unit = {},
     onEdit: (String) -> Unit = {},
     onRegenerate: () -> Unit = {},
@@ -108,7 +109,7 @@ fun ChatBubble(
                 } else {
                     Text(
                         text = (message.name?.firstOrNull() ?: 'A').uppercase(),
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
@@ -146,17 +147,17 @@ fun ChatBubble(
                     )
                     .background(
                         when {
-                            isUser -> UserBubble
-                            isSystem -> SystemBubble
-                            else -> AssistantBubble
+                            isUser -> MaterialTheme.bubbleUser
+                            isSystem -> MaterialTheme.bubbleSystem
+                            else -> MaterialTheme.bubbleAssistant
                         }
                     )
                     .border(
                         width = 1.dp,
                         color = when {
-                            isUser -> UserBubbleBorder
-                            isSystem -> SystemBubbleBorder
-                            else -> AssistantBubbleBorder
+                            isUser -> MaterialTheme.bubbleUserBorder
+                            isSystem -> MaterialTheme.bubbleSystemBorder
+                            else -> MaterialTheme.bubbleAssistantBorder
                         },
                         shape = RoundedCornerShape(
                             topStart = if (isUser) 18.dp else 4.dp,
@@ -184,20 +185,21 @@ fun ChatBubble(
                     Text(
                         text = processedContent,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
+                        color = MaterialTheme.textMuted,
                         fontStyle = FontStyle.Italic
                     )
                 } else if (enableHtmlRendering && !isSystem) {
                     HtmlText(
                         html = processedContent,
-                        textColor = TextPrimary
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        fontSize = chatFontSize
                     )
                 } else {
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         Text(
                             text = processedContent,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = chatFontSize.sp),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -220,13 +222,13 @@ fun ChatBubble(
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一条", tint = TextMuted)
+                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一条", tint = MaterialTheme.textMuted)
                         }
                         
                         Text(
                             text = "${currentVersionIdx + 1} / $totalVersions",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
+                            color = MaterialTheme.textMuted,
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
 
@@ -237,7 +239,7 @@ fun ChatBubble(
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一条", tint = TextMuted)
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一条", tint = MaterialTheme.textMuted)
                         }
                     }
                 }
@@ -256,23 +258,23 @@ fun ChatBubble(
                     Text(
                         text = formatTimestamp(message.timestamp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted,
+                        color = MaterialTheme.textMuted,
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
                     
                     // 操作图标组
                     IconButton(onClick = { onEdit(message.displayContent) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "编辑", tint = TextMuted, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                     }
                     IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.displayContent)) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = TextMuted, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除", tint = TextMuted, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                     }
                     if (isLastAssistant && !isUser) {
                         IconButton(onClick = onRegenerate, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = TextMuted, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -290,7 +292,7 @@ fun ChatBubble(
             ) {
                 Text(
                     text = (message.name?.firstOrNull() ?: 'U').uppercase(),
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -308,8 +310,9 @@ private fun formatTimestamp(timestamp: Long): String {
 }
 
 @Composable
-fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color) {
+fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color, fontSize: Float = 15f) {
     val htmlColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
+    val fontSizePx = fontSize.toInt()
     androidx.compose.ui.viewinterop.AndroidView(
         factory = { context ->
             android.webkit.WebView(context).apply {
@@ -331,7 +334,8 @@ fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color) {
                             margin: 0;
                             padding: 0;
                             word-wrap: break-word;
-                            font-size: 15px;
+                            white-space: pre-wrap;
+                            font-size: ${fontSizePx}px;
                         }
                         * { max-width: 100%; }
                         pre { background: rgba(0,0,0,0.1); padding: 8px; border-radius: 4px; overflow-x: auto; }

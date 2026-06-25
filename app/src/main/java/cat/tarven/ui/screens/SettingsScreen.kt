@@ -86,34 +86,34 @@ fun SettingsScreen(
         focusedBorderColor = TavernPurple,
         unfocusedBorderColor = BorderColor,
         focusedLabelColor = TavernPurpleLight,
-        unfocusedLabelColor = TextSecondary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         cursorColor = TavernPurple,
-        focusedTextColor = TextPrimary,
-        unfocusedTextColor = TextPrimary,
-        focusedContainerColor = InputBackground,
-        unfocusedContainerColor = InputBackground
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedContainerColor = MaterialTheme.inputBackground,
+        unfocusedContainerColor = MaterialTheme.inputBackground
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            
     ) {
         TopAppBar(
             title = {
                 Text(
                     text = "⚙️ 设置",
                     style = MaterialTheme.typography.titleLarge,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = TextPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.onSurface)
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface)
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
 
         Column(
@@ -139,7 +139,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = { presetDropdownExpanded = true },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                         border = BorderStroke(1.dp, BorderColor)
                     ) {
                         Text("从预设加载...")
@@ -148,14 +148,14 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = presetDropdownExpanded,
                         onDismissRequest = { presetDropdownExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f).background(DarkSurfaceElevated)
+                        modifier = Modifier.fillMaxWidth(0.9f).background(MaterialTheme.surfaceElevated)
                     ) {
                         settingsViewModel.apiPresets.forEach { preset ->
                             DropdownMenuItem(
                                 text = { 
                                     Column {
-                                        Text(preset.name, color = TextPrimary)
-                                        Text(preset.apiUrl, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                                        Text(preset.name, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(preset.apiUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.textMuted)
                                     }
                                 },
                                 onClick = {
@@ -183,12 +183,12 @@ fun SettingsScreen(
                 value = settingsViewModel.apiUrl,
                 onValueChange = { settingsViewModel.updateApiUrl(it) },
                 label = { Text("API 地址") },
-                placeholder = { Text("https://api.openai.com", color = TextMuted) },
+                placeholder = { Text("https://api.openai.com", color = MaterialTheme.textMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors,
                 shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Default.Link, null, tint = TextSecondary) }
+                leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -197,7 +197,7 @@ fun SettingsScreen(
                 value = settingsViewModel.apiKey,
                 onValueChange = { settingsViewModel.updateApiKey(it) },
                 label = { Text("API 密钥") },
-                placeholder = { Text("sk-...", color = TextMuted) },
+                placeholder = { Text("sk-...", color = MaterialTheme.textMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors,
@@ -209,7 +209,7 @@ fun SettingsScreen(
                         Icon(
                             if (showApiKey) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             "切换显示",
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -221,7 +221,7 @@ fun SettingsScreen(
                 value = settingsViewModel.modelName,
                 onValueChange = { settingsViewModel.updateModelName(it) },
                 label = { Text("模型名称") },
-                placeholder = { Text("gpt-4o / claude-3.5-sonnet / ...", color = TextMuted) },
+                placeholder = { Text("gpt-4o / claude-3.5-sonnet / ...", color = MaterialTheme.textMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors,
@@ -237,14 +237,14 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = TavernGoldDark,
-                    contentColor = TextPrimary
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (settingsViewModel.isTestingConnection) {
                     CircularProgressIndicator(
                         modifier = Modifier.height(20.dp).width(20.dp),
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -264,7 +264,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(DarkSurfaceVariant)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(12.dp)
                 )
             }
@@ -275,7 +275,7 @@ fun SettingsScreen(
                 Text(
                     text = "点击选择模型：",
                     style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Column(
@@ -283,7 +283,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .heightIn(max = 200.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(DarkSurfaceVariant)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .verticalScroll(rememberScrollState())
                         .padding(4.dp)
                 ) {
@@ -291,7 +291,7 @@ fun SettingsScreen(
                         Text(
                             text = model,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (model == settingsViewModel.modelName) TavernGold else TextSecondary,
+                            color = if (model == settingsViewModel.modelName) TavernGold else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (model == settingsViewModel.modelName) FontWeight.Bold else FontWeight.Normal,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -326,7 +326,7 @@ fun SettingsScreen(
                 Text(
                     text = "Max Tokens",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
@@ -380,7 +380,7 @@ fun SettingsScreen(
                 Text(
                     text = "流式传输 (SSE)",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
                 Switch(
@@ -389,8 +389,8 @@ fun SettingsScreen(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = TavernGold,
                         checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
-                        uncheckedThumbColor = TextMuted,
-                        uncheckedTrackColor = DarkSurfaceVariant
+                        uncheckedThumbColor = MaterialTheme.textMuted,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
@@ -405,7 +405,7 @@ fun SettingsScreen(
                 Text(
                     text = "富文本 (HTML) 渲染",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
                 Switch(
@@ -414,8 +414,8 @@ fun SettingsScreen(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = TavernGold,
                         checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
-                        uncheckedThumbColor = TextMuted,
-                        uncheckedTrackColor = DarkSurfaceVariant
+                        uncheckedThumbColor = MaterialTheme.textMuted,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
@@ -426,7 +426,7 @@ fun SettingsScreen(
             Text(
                 text = "每次生成备选回复数: ${settingsViewModel.autoSwipeCount}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             androidx.compose.material3.Slider(
                 value = settingsViewModel.autoSwipeCount.toFloat(),
@@ -436,13 +436,13 @@ fun SettingsScreen(
                 colors = androidx.compose.material3.SliderDefaults.colors(
                     thumbColor = TavernGold,
                     activeTrackColor = TavernPurple,
-                    inactiveTrackColor = DarkSurfaceVariant
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
             Text(
                 text = "发送消息时，AI 会在后台自动生成此数量的独立回复供您左右滑动挑选。数量越多，所需等待时间和 Token 消耗越大。",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted
+                color = MaterialTheme.textMuted
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -456,7 +456,7 @@ fun SettingsScreen(
                 value = settingsViewModel.userName,
                 onValueChange = { settingsViewModel.updateUserName(it) },
                 label = { Text("用户名称") },
-                placeholder = { Text("你的名字", color = TextMuted) },
+                placeholder = { Text("你的名字", color = MaterialTheme.textMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = textFieldColors,
@@ -469,7 +469,7 @@ fun SettingsScreen(
                 value = settingsViewModel.userPersona,
                 onValueChange = { settingsViewModel.updateUserPersona(it) },
                 label = { Text("玩家设定（马甲）") },
-                placeholder = { Text("对自己角色的介绍，会作为玩家设定发送给 AI", color = TextMuted) },
+                placeholder = { Text("对自己角色的介绍，会作为玩家设定发送给 AI", color = MaterialTheme.textMuted) },
                 minLines = 3,
                 maxLines = 8,
                 modifier = Modifier.fillMaxWidth(),
@@ -487,7 +487,7 @@ fun SettingsScreen(
             Text(
                 text = "支持 {{char}} 和 {{user}} 变量替换",
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = MaterialTheme.textMuted,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -512,7 +512,7 @@ fun SettingsScreen(
             Text(
                 text = "自定义正则表达式来替换、过滤显示文本。这些规则会在展示前处理内容。",
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = MaterialTheme.textMuted,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -521,14 +521,14 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(DarkSurfaceVariant)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = rule.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Text(text = "Find: ${rule.pattern}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                        Text(text = "Replace: ${rule.replacement}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Text(text = rule.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                        Text(text = "Find: ${rule.pattern}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.textMuted)
+                        Text(text = "Replace: ${rule.replacement}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.textMuted)
                     }
                     Switch(
                         checked = rule.isEnabled,
@@ -536,8 +536,8 @@ fun SettingsScreen(
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = TavernGold,
                             checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
-                            uncheckedThumbColor = TextMuted,
-                            uncheckedTrackColor = DarkSurfaceVariant
+                            uncheckedThumbColor = MaterialTheme.textMuted,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                     IconButton(onClick = { 
@@ -547,7 +547,7 @@ fun SettingsScreen(
                         regexReplacementInput = rule.replacement
                         showRegexDialog = true 
                     }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = TextSecondary)
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { settingsViewModel.deleteRegexRule(rule.id) }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorRed)
@@ -578,13 +578,13 @@ fun SettingsScreen(
     if (showSavePresetDialog) {
         AlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
-            title = { Text("保存 API 预设", color = TextPrimary) },
+            title = { Text("保存 API 预设", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 OutlinedTextField(
                     value = presetNameInput,
                     onValueChange = { presetNameInput = it },
                     label = { Text("预设名称") },
-                    placeholder = { Text("例如：本地-Qwen", color = TextMuted) },
+                    placeholder = { Text("例如：本地-Qwen", color = MaterialTheme.textMuted) },
                     singleLine = true,
                     colors = textFieldColors,
                     modifier = Modifier.fillMaxWidth()
@@ -605,19 +605,19 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showSavePresetDialog = false }) {
-                    Text("取消", color = TextMuted)
+                    Text("取消", color = MaterialTheme.textMuted)
                 }
             },
-            containerColor = DarkSurfaceElevated,
-            titleContentColor = TextPrimary,
-            textContentColor = TextPrimary
+            containerColor = MaterialTheme.surfaceElevated,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 
     if (showRegexDialog) {
         AlertDialog(
             onDismissRequest = { showRegexDialog = false },
-            title = { Text(if (editingRegexRule == null) "添加正则规则" else "编辑正则规则", color = TextPrimary) },
+            title = { Text(if (editingRegexRule == null) "添加正则规则" else "编辑正则规则", color = MaterialTheme.colorScheme.onSurface) },
             text = {
                 Column {
                     OutlinedTextField(
@@ -673,12 +673,12 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRegexDialog = false }) {
-                    Text("取消", color = TextMuted)
+                    Text("取消", color = MaterialTheme.textMuted)
                 }
             },
-            containerColor = DarkSurfaceElevated,
-            titleContentColor = TextPrimary,
-            textContentColor = TextPrimary
+            containerColor = MaterialTheme.surfaceElevated,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -710,7 +710,7 @@ private fun ParameterSlider(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
             Text(
@@ -728,7 +728,7 @@ private fun ParameterSlider(
             colors = SliderDefaults.colors(
                 thumbColor = TavernPurple,
                 activeTrackColor = TavernPurple,
-                inactiveTrackColor = DarkSurfaceVariant
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
     }

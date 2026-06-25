@@ -96,7 +96,7 @@ fun CharacterListScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 顶部栏
             TopAppBar(
@@ -105,12 +105,12 @@ fun CharacterListScreen(
                         TextField(
                             value = characterViewModel.searchQuery,
                             onValueChange = { characterViewModel.updateSearchQuery(it) },
-                            placeholder = { Text("搜索角色...", color = TextMuted) },
+                            placeholder = { Text("搜索角色...", color = MaterialTheme.textMuted) },
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = DarkSurfaceVariant,
-                                unfocusedContainerColor = DarkSurfaceVariant,
-                                focusedTextColor = TextPrimary,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 cursorColor = TavernPurple,
                                 focusedIndicatorColor = TavernPurple,
                                 unfocusedIndicatorColor = DividerColor
@@ -127,7 +127,7 @@ fun CharacterListScreen(
                             Text(
                                 text = "CatTarven",
                                 style = MaterialTheme.typography.headlineMedium,
-                                color = TextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -144,15 +144,15 @@ fun CharacterListScreen(
                         Icon(
                             if (showSearch) Icons.Default.Close else Icons.Default.Search,
                             contentDescription = "搜索",
-                            tint = TextPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(onClick = onSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "设置", tint = TextPrimary)
+                        Icon(Icons.Default.Settings, contentDescription = "设置", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkSurface
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
 
@@ -172,14 +172,14 @@ fun CharacterListScreen(
                         Text(
                             text = "还没有角色",
                             style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "点击下方按钮创建新角色\n或导入角色卡文件",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 48.dp),
                             lineHeight = 22.sp
                         )
@@ -215,9 +215,9 @@ fun CharacterListScreen(
         showDeleteDialog?.let { charToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("删除角色", color = TextPrimary) },
-                text = { Text("确定要删除角色「${charToDelete.name}」及其所有聊天记录吗？此操作不可恢复。", color = TextSecondary) },
-                containerColor = DarkSurface,
+                title = { Text("删除角色", color = MaterialTheme.colorScheme.onSurface) },
+                text = { Text("确定要删除角色「${charToDelete.name}」及其所有聊天记录吗？此操作不可恢复。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                containerColor = MaterialTheme.colorScheme.surface,
                 confirmButton = {
                     TextButton(onClick = {
                         characterViewModel.deleteCharacter(charToDelete.id)
@@ -228,7 +228,7 @@ fun CharacterListScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = null }) {
-                        Text("取消", color = TextMuted)
+                        Text("取消", color = MaterialTheme.textMuted)
                     }
                 }
             )
@@ -253,7 +253,7 @@ fun CharacterListScreen(
                             showFab = false
                         },
                         containerColor = TavernGoldDark,
-                        contentColor = TextPrimary,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         shape = CircleShape
                     ) {
                         Icon(Icons.Default.FileUpload, contentDescription = "导入")
@@ -264,7 +264,7 @@ fun CharacterListScreen(
                             showFab = false
                         },
                         containerColor = TavernPurpleDark,
-                        contentColor = TextPrimary,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         shape = CircleShape
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "创建")
@@ -275,7 +275,7 @@ fun CharacterListScreen(
             FloatingActionButton(
                 onClick = { showFab = !showFab },
                 containerColor = TavernPurple,
-                contentColor = TextPrimary,
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 shape = CircleShape
             ) {
                 Icon(
@@ -295,7 +295,7 @@ fun CharacterListScreen(
         ) { data ->
             Snackbar(
                 snackbarData = data,
-                containerColor = DarkSurfaceElevated,
+                containerColor = MaterialTheme.surfaceElevated,
                 contentColor = ErrorRed,
                 shape = RoundedCornerShape(12.dp)
             )

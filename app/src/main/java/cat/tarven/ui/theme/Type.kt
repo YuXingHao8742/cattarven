@@ -85,3 +85,20 @@ val Typography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+fun getScaledTypography(appFontSize: Float): Typography {
+    val scale = appFontSize / 14f
+    return Typography(
+        displayLarge = Typography.displayLarge.copy(fontSize = Typography.displayLarge.fontSize * scale, lineHeight = Typography.displayLarge.lineHeight * scale),
+        headlineLarge = Typography.headlineLarge.copy(fontSize = Typography.headlineLarge.fontSize * scale, lineHeight = Typography.headlineLarge.lineHeight * scale),
+        headlineMedium = Typography.headlineMedium.copy(fontSize = Typography.headlineMedium.fontSize * scale, lineHeight = Typography.headlineMedium.lineHeight * scale),
+        titleLarge = Typography.titleLarge.copy(fontSize = Typography.titleLarge.fontSize * scale, lineHeight = Typography.titleLarge.lineHeight * scale),
+        titleMedium = Typography.titleMedium.copy(fontSize = Typography.titleMedium.fontSize * scale, lineHeight = Typography.titleMedium.lineHeight * scale),
+        bodyLarge = Typography.bodyLarge.copy(fontSize = Typography.bodyLarge.fontSize * scale, lineHeight = Typography.bodyLarge.lineHeight * scale),
+        bodyMedium = Typography.bodyMedium.copy(fontSize = Typography.bodyMedium.fontSize * scale, lineHeight = Typography.bodyMedium.lineHeight * scale),
+        bodySmall = Typography.bodySmall.copy(fontSize = Typography.bodySmall.fontSize * scale, lineHeight = Typography.bodySmall.lineHeight * scale),
+        labelLarge = Typography.labelLarge.copy(fontSize = Typography.labelLarge.fontSize * scale, lineHeight = Typography.labelLarge.lineHeight * scale),
+        labelMedium = Typography.labelMedium.copy(fontSize = Typography.labelMedium.fontSize * scale, lineHeight = Typography.labelMedium.lineHeight * scale),
+        labelSmall = Typography.labelSmall.copy(fontSize = Typography.labelSmall.fontSize * scale, lineHeight = Typography.labelSmall.lineHeight * scale)
+    )
+}

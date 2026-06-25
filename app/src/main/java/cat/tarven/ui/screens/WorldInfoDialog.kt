@@ -44,12 +44,12 @@ fun WorldInfoDialog(
         focusedBorderColor = TavernPurple,
         unfocusedBorderColor = BorderColor,
         focusedLabelColor = TavernPurpleLight,
-        unfocusedLabelColor = TextSecondary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         cursorColor = TavernPurple,
-        focusedTextColor = TextPrimary,
-        unfocusedTextColor = TextPrimary,
-        focusedContainerColor = InputBackground,
-        unfocusedContainerColor = InputBackground
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedContainerColor = MaterialTheme.inputBackground,
+        unfocusedContainerColor = MaterialTheme.inputBackground
     )
 
     Dialog(
@@ -61,7 +61,7 @@ fun WorldInfoDialog(
                 .fillMaxSize()
                 .padding(16.dp)
                 .clip(RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated
+            color = MaterialTheme.surfaceElevated
         ) {
             if (editingEntry != null) {
                 // === 编辑/新增词条 ===
@@ -86,9 +86,9 @@ fun WorldInfoDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("📖 世界书", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                        Text("📖 世界书", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "关闭", tint = TextPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "关闭", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -128,7 +128,7 @@ fun WorldInfoDialog(
                     Button(
                         onClick = { editingEntry = WorldInfoEntry() },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = TextPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = MaterialTheme.colorScheme.onSurface)
                     ) {
                         Icon(Icons.Default.Add, null, modifier = Modifier.padding(end = 4.dp))
                         Text("添加词条")
@@ -158,7 +158,7 @@ private fun WorldInfoListItem(
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(8.dp)
     ) {
         Row(
@@ -174,7 +174,7 @@ private fun WorldInfoListItem(
                     } else if (entry.keys.isNotEmpty()) {
                         Text(entry.keys.joinToString(", "), style = MaterialTheme.typography.labelLarge, color = TavernGold, maxLines = 1)
                     } else {
-                        Text("(无关键字)", style = MaterialTheme.typography.labelLarge, color = TextMuted)
+                        Text("(无关键字)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.textMuted)
                     }
                 }
                 if (tagLabel != null) {
@@ -183,13 +183,13 @@ private fun WorldInfoListItem(
                 Text(
                     entry.content,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, "编辑", tint = TextPrimary)
+                Icon(Icons.Default.Edit, "编辑", tint = MaterialTheme.colorScheme.onSurface)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, "删除", tint = ErrorRed)
@@ -249,7 +249,7 @@ private fun WorldInfoEntryEditor(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("编辑世界书词条", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Text("编辑世界书词条", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(16.dp))
 
         // 备注名
@@ -286,7 +286,7 @@ private fun WorldInfoEntryEditor(
         Spacer(modifier = Modifier.height(16.dp))
 
         // === 标签选择 ===
-        Text("标签类型", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+        Text("标签类型", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(4.dp))
         ExposedDropdownMenuBox(expanded = tagExpanded, onExpandedChange = { tagExpanded = it }) {
             OutlinedTextField(
@@ -300,11 +300,11 @@ private fun WorldInfoEntryEditor(
             ExposedDropdownMenu(
                 expanded = tagExpanded,
                 onDismissRequest = { tagExpanded = false },
-                modifier = Modifier.background(DarkSurfaceElevated)
+                modifier = Modifier.background(MaterialTheme.surfaceElevated)
             ) {
                 tags.forEach { (value, label) ->
                     DropdownMenuItem(
-                        text = { Text(label, color = TextPrimary) },
+                        text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = { tagState = value; tagExpanded = false }
                     )
                 }
@@ -323,7 +323,7 @@ private fun WorldInfoEntryEditor(
 
         // === 相对位置（仅普通条目显示） ===
         if (tagState == "normal") {
-            Text("相对位置", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Text("相对位置", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             ExposedDropdownMenuBox(expanded = posExpanded, onExpandedChange = { posExpanded = it }) {
                 OutlinedTextField(
@@ -337,11 +337,11 @@ private fun WorldInfoEntryEditor(
                 ExposedDropdownMenu(
                     expanded = posExpanded,
                     onDismissRequest = { posExpanded = false },
-                    modifier = Modifier.background(DarkSurfaceElevated)
+                    modifier = Modifier.background(MaterialTheme.surfaceElevated)
                 ) {
                     positions.forEach { (value, label) ->
                         DropdownMenuItem(
-                            text = { Text(label, color = TextPrimary) },
+                            text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = { relativePositionState = value; posExpanded = false }
                         )
                     }
@@ -351,7 +351,7 @@ private fun WorldInfoEntryEditor(
         }
 
         // === 消息身份 (Role) ===
-        Text("消息身份", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+        Text("消息身份", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(4.dp))
         ExposedDropdownMenuBox(expanded = roleExpanded, onExpandedChange = { roleExpanded = it }) {
             OutlinedTextField(
@@ -365,11 +365,11 @@ private fun WorldInfoEntryEditor(
             ExposedDropdownMenu(
                 expanded = roleExpanded,
                 onDismissRequest = { roleExpanded = false },
-                modifier = Modifier.background(DarkSurfaceElevated)
+                modifier = Modifier.background(MaterialTheme.surfaceElevated)
             ) {
                 roles.forEach { (value, label) ->
                     DropdownMenuItem(
-                        text = { Text(label, color = TextPrimary) },
+                        text = { Text(label, color = MaterialTheme.colorScheme.onSurface) },
                         onClick = { roleState = value; roleExpanded = false }
                     )
                 }
@@ -390,7 +390,7 @@ private fun WorldInfoEntryEditor(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("常驻", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text("常驻", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Switch(
                     checked = constantState,
                     onCheckedChange = { constantState = it }
@@ -398,7 +398,7 @@ private fun WorldInfoEntryEditor(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("启用", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text("启用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Switch(
                     checked = !disableState,
                     onCheckedChange = { disableState = !it }
@@ -410,7 +410,7 @@ private fun WorldInfoEntryEditor(
 
         // === 操作按钮 ===
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onCancel) { Text("取消", color = TextSecondary) }
+            TextButton(onClick = onCancel) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = {
@@ -437,7 +437,7 @@ private fun WorldInfoEntryEditor(
                     )
                     onSave(newEntry, updatedWorldInfo)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = TextPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = MaterialTheme.colorScheme.onSurface)
             ) { Text("保存") }
         }
     }

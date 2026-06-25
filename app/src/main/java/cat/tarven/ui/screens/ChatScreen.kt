@@ -174,7 +174,7 @@ fun ChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            
     ) {
         // 顶部栏
         TopAppBar(
@@ -201,7 +201,7 @@ fun ChatScreen(
                         } else {
                             Text(
                                 text = (character?.name?.firstOrNull() ?: '?').uppercase(),
-                                color = TextPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
@@ -212,7 +212,7 @@ fun ChatScreen(
                         Text(
                             text = character?.name ?: "聊天",
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold
                         )
                         if (chatViewModel.isGenerating) {
@@ -230,7 +230,7 @@ fun ChatScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "返回",
-                        tint = TextPrimary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             },
@@ -240,10 +240,10 @@ fun ChatScreen(
                     Text("📖", fontSize = 20.sp)
                 }
                 IconButton(onClick = onSettings) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "设置", tint = TextPrimary)
+                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "设置", tint = MaterialTheme.colorScheme.onSurface)
                 }
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "菜单", tint = TextPrimary)
+                    Icon(Icons.Default.MoreVert, contentDescription = "菜单", tint = MaterialTheme.colorScheme.onSurface)
                 }
                 DropdownMenu(
                     expanded = showMenu,
@@ -276,8 +276,8 @@ fun ChatScreen(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = DarkSurface,
-                titleContentColor = TextPrimary
+                containerColor = MaterialTheme.colorScheme.surface,
+                titleContentColor = MaterialTheme.colorScheme.onSurface
             )
         )
 
@@ -297,7 +297,7 @@ fun ChatScreen(
                         Text(
                             text = "开始与 ${character?.name ?: "角色"} 对话",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = TextMuted,
+                            color = MaterialTheme.textMuted,
                             modifier = Modifier.padding(top = 12.dp)
                         )
                     }
@@ -319,6 +319,7 @@ fun ChatScreen(
                             characterAvatarUri = character?.avatarUri,
                             enableHtmlRendering = settingsViewModel.enableHtmlRendering,
                             regexRules = settingsViewModel.regexRules + (character?.regexRules ?: emptyList()),
+                            chatFontSize = settingsViewModel.chatFontSize,
                             isLastAssistant = isLastAssistant,
                             onDelete = { chatViewModel.deleteMessage(message.id) },
                             onEdit = { 
@@ -339,7 +340,7 @@ fun ChatScreen(
             ) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = DarkSurfaceElevated,
+                    containerColor = MaterialTheme.surfaceElevated,
                     contentColor = ErrorRed,
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -410,10 +411,10 @@ fun ChatScreen(
                     value = editingMessageContent,
                     onValueChange = { editingMessageContent = it },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = DarkSurfaceElevated,
-                        unfocusedContainerColor = DarkSurfaceElevated,
+                        focusedContainerColor = MaterialTheme.surfaceElevated,
+                        unfocusedContainerColor = MaterialTheme.surfaceElevated,
                         focusedBorderColor = TavernPurple,
                         unfocusedBorderColor = TavernPurpleLight.copy(alpha = 0.5f)
                     )
@@ -431,11 +432,11 @@ fun ChatScreen(
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { editingMessageId = null }) {
-                    Text("取消", color = TextMuted)
+                    Text("取消", color = MaterialTheme.textMuted)
                 }
             },
-            containerColor = DarkSurface,
-            titleContentColor = TextPrimary
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 }

@@ -50,7 +50,7 @@ fun ChatInput(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(DarkSurface)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -59,13 +59,13 @@ fun ChatInput(
             onClick = onNewConversation,
             modifier = Modifier.padding(end = 4.dp, bottom = 4.dp).size(36.dp)
         ) {
-            Icon(androidx.compose.material.icons.Icons.Default.AddComment, contentDescription = "新建对话", tint = TextSecondary)
+            Icon(androidx.compose.material.icons.Icons.Default.AddComment, contentDescription = "新建对话", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(
             onClick = onRegenerate,
             modifier = Modifier.padding(end = 8.dp, bottom = 4.dp).size(36.dp)
         ) {
-            Icon(androidx.compose.material.icons.Icons.Default.Refresh, contentDescription = "重新生成", tint = TextSecondary)
+            Icon(androidx.compose.material.icons.Icons.Default.Refresh, contentDescription = "重新生成", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         // 输入框
@@ -76,11 +76,11 @@ fun ChatInput(
                 .weight(1f)
                 .heightIn(min = 44.dp, max = 160.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .background(InputBackground)
-                .border(1.dp, InputBorder, RoundedCornerShape(22.dp))
+                .background(MaterialTheme.inputBackground)
+                .border(1.dp, MaterialTheme.inputBorder, RoundedCornerShape(22.dp))
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = TextPrimary
+                color = MaterialTheme.colorScheme.onSurface
             ),
             cursorBrush = SolidColor(TavernPurple),
             maxLines = 6,
@@ -89,7 +89,7 @@ fun ChatInput(
                     Text(
                         text = "输入消息...",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextMuted
+                        color = MaterialTheme.textMuted
                     )
                 }
                 innerTextField()
@@ -125,7 +125,7 @@ fun ChatInput(
                     imageVector = if (isGenerating) Icons.Default.Stop
                                   else Icons.AutoMirrored.Filled.Send,
                     contentDescription = if (isGenerating) "停止" else "发送",
-                    tint = TextPrimary,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp)
                 )
             }

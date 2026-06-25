@@ -79,7 +79,7 @@ fun CharacterCard(
             } else {
                 Text(
                     text = character.name.firstOrNull()?.uppercase() ?: "?",
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp
                 )
@@ -92,7 +92,7 @@ fun CharacterCard(
             Text(
                 text = character.name,
                 style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -103,7 +103,7 @@ fun CharacterCard(
             Text(
                 text = character.description.ifBlank { character.personality.ifBlank { "暂无描述" } },
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp
