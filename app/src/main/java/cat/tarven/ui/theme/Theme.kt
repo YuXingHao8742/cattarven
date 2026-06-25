@@ -134,3 +134,7 @@ val MaterialTheme.chipBackground: Color
 val MaterialTheme.chipText: Color
     @Composable
     get() = if (colorScheme.background == LightBackground) LightChipText else ChipText
+
+val MaterialTheme.cardBackground: Color
+    @Composable
+    get() = if (colorScheme.background == LightBackground) LightCard else DarkCard

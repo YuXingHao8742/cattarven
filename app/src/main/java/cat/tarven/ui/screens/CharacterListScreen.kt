@@ -67,12 +67,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun CharacterListScreen(
     characterViewModel: CharacterViewModel,
-    onCharacterClick: (Character) -> Unit,
+    onConversationClick: (cat.tarven.data.model.ConversationWithCharacter) -> Unit,
     onCreateCharacter: () -> Unit,
     onSettings: () -> Unit,
     onLabClick: () -> Unit
 ) {
-    val characters = characterViewModel.filteredCharacters
+    val conversations = characterViewModel.filteredConversations
     var showSearch by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Character?>(null) }
     var showFab by remember { mutableStateOf(false) }
@@ -125,7 +125,7 @@ fun CharacterListScreen(
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                             Text(
-                                text = "CatTarven",
+                                text = "CatTavern",
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold
@@ -157,7 +157,7 @@ fun CharacterListScreen(
             )
 
             // 角色列表
-            if (characters.isEmpty()) {
+            if (conversations.isEmpty()) {
                 // 空状态
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -197,13 +197,14 @@ fun CharacterListScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(
-                        items = characters,
-                        key = { it.id }
-                    ) { character ->
-                        CharacterCard(
-                            character = character,
-                            onClick = { onCharacterClick(character) },
-                            onLongClick = { showDeleteDialog = character },
+                        items = conversations,
+                        key = { it.conversation.id } // 使用 conversation.id 作为 key
+                    ) { convWithChar ->
+                        cat.tarven.ui.components.ConversationCard(
+                            conversation = convWithChar.conversation,
+                            character = convWithChar.character,
+                            onClick = { onConversationClick(convWithChar) },
+                            onLongClick = { showDeleteDialog = convWithChar.character }, // 暂时保留长按删除整个角色
                             modifier = Modifier.animateItem()
                         )
                     }

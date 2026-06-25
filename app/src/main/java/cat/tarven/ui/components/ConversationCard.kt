@@ -35,18 +35,21 @@ import androidx.compose.foundation.combinedClickable
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CharacterCard(
+fun ConversationCard(
+    conversation: cat.tarven.data.model.Conversation,
     character: Character,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val roundCount = kotlin.math.ceil(conversation.messages.size / 2.0).toInt()
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(DarkCard)
-            .border(1.dp, BorderColor, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.cardBackground)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -89,19 +92,33 @@ fun CharacterCard(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = character.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = character.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Text(
+                    text = "${roundCount}轮对话",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.textMuted
+                )
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            val displayContent = conversation.messages.lastOrNull()?.content?.ifBlank { "..." } ?: character.description.ifBlank { character.personality.ifBlank { "暂无描述" } }
+            
             Text(
-                text = character.description.ifBlank { character.personality.ifBlank { "暂无描述" } },
+                text = displayContent,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -116,11 +133,11 @@ fun CharacterCard(
                         Text(
                             text = tag,
                             style = MaterialTheme.typography.labelSmall,
-                            color = ChipText,
+                            color = MaterialTheme.chipText,
                             modifier = Modifier
                                 .padding(end = 6.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(ChipBackground)
+                                .background(MaterialTheme.chipBackground)
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         )
                     }

@@ -46,25 +46,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 初始化聊天 — 加载角色和对话
      */
-    fun initChat(character: Character) {
-        currentCharacter = character
-        val conversation = chatRepo.getOrCreateLatestConversation(character.id, character.name)
-        currentConversation = conversation
+    fun initChat(convWithChar: cat.tarven.data.model.ConversationWithCharacter) {
+        currentCharacter = convWithChar.character
+        currentConversation = convWithChar.conversation
         messages.clear()
-        messages.addAll(conversation.messages)
+        messages.addAll(convWithChar.conversation.messages)
 
         // 收集所有开场白（主开场白 + 备用开场白）
         val allGreetings = buildList {
-            if (character.firstMessage.isNotBlank()) add(character.firstMessage)
-            addAll(character.alternateGreetings)
+            if (convWithChar.character.firstMessage.isNotBlank()) add(convWithChar.character.firstMessage)
+            addAll(convWithChar.character.alternateGreetings)
         }.distinct() // 去重，防止某些卡片主备重复
 
         // 如果是全新对话且有开场白，自动添加
         if (messages.isEmpty() && allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(allGreetings.first(), character),
-                name = character.name,
+                content = substituteParams(allGreetings.first(), convWithChar.character),
+                name = convWithChar.character.name,
                 alternateGreetings = allGreetings,
                 currentGreetingIndex = 0
             )

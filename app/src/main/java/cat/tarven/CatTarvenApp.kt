@@ -81,14 +81,14 @@ fun CatTarvenApp() {
                 navController = navController,
                 startDestination = Screen.CharacterList.route
             ) {
-                // 角色列表
+                // 角色/对话列表
                 composable(Screen.CharacterList.route) {
                     CharacterListScreen(
                         characterViewModel = characterViewModel,
-                        onCharacterClick = { character ->
-                            characterViewModel.selectCharacter(character)
-                            chatViewModel.initChat(character)
-                            navController.navigate(Screen.Chat.createRoute(character.id))
+                        onConversationClick = { convWithChar ->
+                            characterViewModel.selectConversation(convWithChar)
+                            chatViewModel.initChat(convWithChar)
+                            navController.navigate(Screen.Chat.createRoute(convWithChar.conversation.id))
                         },
                         onCreateCharacter = {
                             characterViewModel.startEditCharacter(null)
@@ -111,7 +111,7 @@ fun CatTarvenApp() {
                     )
                 ) { backStackEntry ->
                     val characterId = backStackEntry.arguments?.getString("characterId") ?: "new"
-                    val character = if (characterId == "new") null else characterViewModel.characters.find { it.id == characterId }
+                    val character = if (characterId == "new") null else characterViewModel.conversations.find { it.character.id == characterId }?.character
 
                     CharacterEditScreen(
                         character = character,
@@ -124,7 +124,7 @@ fun CatTarvenApp() {
                 composable(
                     route = Screen.Chat.route,
                     arguments = listOf(
-                        navArgument("characterId") { type = NavType.StringType }
+                        navArgument("characterId") { type = NavType.StringType } // 保持名为 characterId 以兼容，但实际传入的是 conversationId
                     )
                 ) {
                     ChatScreen(

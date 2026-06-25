@@ -17,3 +17,11 @@ data class Conversation(
     @SerializedName("updated_at")
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+/**
+ * 带有角色信息的对话模型（用于主页列表展示）
+ */
+data class ConversationWithCharacter(
+    val conversation: Conversation,
+    val character: Character
+)

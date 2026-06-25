@@ -18,7 +18,9 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
     private val characterRepo = CharacterRepository(application)
     private val chatRepo = ChatRepository(application)
 
-    var characters by mutableStateOf<List<Character>>(emptyList())
+    var conversations by mutableStateOf<List<cat.tarven.data.model.ConversationWithCharacter>>(emptyList())
+        private set
+    var selectedConversation by mutableStateOf<cat.tarven.data.model.Conversation?>(null)
         private set
     var selectedCharacter by mutableStateOf<Character?>(null)
         private set
@@ -34,27 +36,57 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         private set
 
     init {
-        loadCharacters()
+        loadConversations()
     }
 
-    fun loadCharacters() {
+    fun loadConversations() {
         isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
-            val list = characterRepo.getAllCharacters()
+            val allCharacters = characterRepo.getAllCharacters().associateBy { it.id }
+            val allConversations = chatRepo.getAllConversations()
+            
+            val result = mutableListOf<cat.tarven.data.model.ConversationWithCharacter>()
+            val processedCharacterIds = mutableSetOf<String>()
+            
+            // 添加所有实际的对话
+            for (conv in allConversations) {
+                val char = allCharacters[conv.characterId]
+                if (char != null) {
+                    result.add(cat.tarven.data.model.ConversationWithCharacter(conv, char))
+                    processedCharacterIds.add(char.id)
+                }
+            }
+            
+            // 为没有任何对话的角色添加一个空对话作为入口
+            for (char in allCharacters.values) {
+                if (!processedCharacterIds.contains(char.id)) {
+                    val emptyConv = cat.tarven.data.model.Conversation(
+                        characterId = char.id,
+                        title = "与 ${char.name} 的对话",
+                        updatedAt = char.updatedAt
+                    )
+                    result.add(cat.tarven.data.model.ConversationWithCharacter(emptyConv, char))
+                }
+            }
+            
+            // 最终按时间倒序排列
+            result.sortByDescending { it.conversation.updatedAt }
+            
             kotlinx.coroutines.withContext(Dispatchers.Main) {
-                characters = list
+                conversations = result
                 isLoading = false
             }
         }
     }
 
-    fun selectCharacter(character: Character) {
-        selectedCharacter = character
+    fun selectConversation(convWithChar: cat.tarven.data.model.ConversationWithCharacter) {
+        selectedConversation = convWithChar.conversation
+        selectedCharacter = convWithChar.character
     }
 
     fun saveCharacter(character: Character) {
         characterRepo.saveCharacter(character)
-        loadCharacters()
+        loadConversations()
         errorMessage = null
     }
 
@@ -63,15 +95,25 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         chatRepo.deleteAllConversations(id)
         if (selectedCharacter?.id == id) {
             selectedCharacter = null
+            selectedConversation = null
         }
-        loadCharacters()
+        loadConversations()
+    }
+
+    fun deleteConversation(characterId: String, conversationId: String) {
+        chatRepo.deleteConversation(characterId, conversationId)
+        if (selectedConversation?.id == conversationId) {
+            selectedConversation = null
+            selectedCharacter = null
+        }
+        loadConversations()
     }
 
     fun importCharacterFromJson(jsonString: String) {
         val result = characterRepo.importCharacter(jsonString)
         result.fold(
             onSuccess = {
-                loadCharacters()
+                loadConversations()
                 errorMessage = null
             },
             onFailure = { error ->
@@ -108,7 +150,7 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
                             characterRepo.saveCharacter(chara.copy(avatarUri = avatarPath))
                         }
                     }
-                    loadCharacters()
+                    loadConversations()
                     errorMessage = null
                 },
                 onFailure = { error ->
@@ -176,12 +218,12 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         errorMessage = null
     }
 
-    val filteredCharacters: List<Character>
+    val filteredConversations: List<cat.tarven.data.model.ConversationWithCharacter>
         get() {
-            if (searchQuery.isBlank()) return characters
-            return characters.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                it.description.contains(searchQuery, ignoreCase = true)
+            if (searchQuery.isBlank()) return conversations
+            return conversations.filter {
+                it.character.name.contains(searchQuery, ignoreCase = true) ||
+                it.character.description.contains(searchQuery, ignoreCase = true)
             }
         }
 }

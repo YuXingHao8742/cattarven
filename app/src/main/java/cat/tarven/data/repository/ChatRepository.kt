@@ -87,4 +87,26 @@ class ChatRepository(private val context: Context) {
         )
         return saveConversation(newConversation)
     }
+
+    /**
+     * 获取所有的对话 (用于主页展示)
+     */
+    fun getAllConversations(): List<Conversation> {
+        val allConversations = mutableListOf<Conversation>()
+        val dirs = chatsDir.listFiles { file -> file.isDirectory } ?: return emptyList()
+        
+        for (dir in dirs) {
+            val files = dir.listFiles { file -> file.extension == "json" } ?: continue
+            for (file in files) {
+                try {
+                    val conv = gson.fromJson(file.readText(), Conversation::class.java)
+                    allConversations.add(conv)
+                } catch (e: Exception) {
+                    // Ignore corrupted files
+                }
+            }
+        }
+        
+        return allConversations.sortedByDescending { it.updatedAt }
+    }
 }
