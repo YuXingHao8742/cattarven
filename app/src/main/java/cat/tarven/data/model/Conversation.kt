@@ -11,9 +11,9 @@ data class Conversation(
     @SerializedName("character_id")
     val characterId: String = "",
     val title: String = "",
-    val messages: MutableList<ChatMessage> = mutableListOf(),
+    val messages: List<ChatMessage> = emptyList(),
     @SerializedName("created_at")
     val createdAt: Long = System.currentTimeMillis(),
     @SerializedName("updated_at")
-    var updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis()
 )

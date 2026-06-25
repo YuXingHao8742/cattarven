@@ -153,16 +153,29 @@ class CharacterRepository(private val context: Context) {
                 val entriesObj = entriesElement.asJsonObject
                 for ((_, value) in entriesObj.entrySet()) {
                     val raw = gson.fromJson(value, RawWorldInfoEntry::class.java)
-                    if (raw.disable == true) continue
+                    val isDisabled = raw.disable ?: !(raw.enabled ?: true)
+                    if (isDisabled) continue
                     entryList.add(WorldInfoEntry(
-                        keys = raw.key ?: emptyList(),
+                        keys = raw.keys ?: raw.key ?: emptyList(),
                         content = raw.content ?: "",
-                        insertionOrder = raw.insertionorder ?: raw.order ?: 0,
+                        insertionOrder = raw.insertion_order ?: raw.insertionorder ?: raw.order ?: 0,
                         comment = raw.comment ?: "",
                         constant = raw.constant ?: false,
-                        disable = raw.disable ?: false,
+                        disable = isDisabled,
                         selective = raw.selective ?: false,
-                        keysecondary = raw.keysecondary ?: emptyList()
+                        keysecondary = raw.secondary_keys ?: raw.keysecondary ?: emptyList(),
+                        position = when (val p = raw.position) {
+                            is Number -> p.toInt()
+                            is String -> p.toIntOrNull() ?: 1
+                            else -> 1
+                        },
+                        depth = raw.depth ?: 4,
+                        role = when (raw.role) {
+                            0, "0" -> "system"
+                            1, "1" -> "user"
+                            2, "2" -> "assistant"
+                            else -> "system"
+                        }
                     ))
                 }
             } else if (entriesElement.isJsonArray) {
@@ -170,16 +183,29 @@ class CharacterRepository(private val context: Context) {
                 val arr = entriesElement.asJsonArray
                 for (elem in arr) {
                     val raw = gson.fromJson(elem, RawWorldInfoEntry::class.java)
-                    if (raw.disable == true) continue
+                    val isDisabled = raw.disable ?: !(raw.enabled ?: true)
+                    if (isDisabled) continue
                     entryList.add(WorldInfoEntry(
-                        keys = raw.key ?: emptyList(),
+                        keys = raw.keys ?: raw.key ?: emptyList(),
                         content = raw.content ?: "",
-                        insertionOrder = raw.insertionorder ?: raw.order ?: 0,
+                        insertionOrder = raw.insertion_order ?: raw.insertionorder ?: raw.order ?: 0,
                         comment = raw.comment ?: "",
                         constant = raw.constant ?: false,
-                        disable = raw.disable ?: false,
+                        disable = isDisabled,
                         selective = raw.selective ?: false,
-                        keysecondary = raw.keysecondary ?: emptyList()
+                        keysecondary = raw.secondary_keys ?: raw.keysecondary ?: emptyList(),
+                        position = when (val p = raw.position) {
+                            is Number -> p.toInt()
+                            is String -> p.toIntOrNull() ?: 1
+                            else -> 1
+                        },
+                        depth = raw.depth ?: 4,
+                        role = when (raw.role) {
+                            0, "0" -> "system"
+                            1, "1" -> "user"
+                            2, "2" -> "assistant"
+                            else -> "system"
+                        }
                     ))
                 }
             }

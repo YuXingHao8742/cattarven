@@ -56,8 +56,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var apiPresets by mutableStateOf<List<cat.tarven.data.repository.ApiPreset>>(emptyList())
         private set
 
+    // 正则扩展列表
+    var regexRules by mutableStateOf<List<cat.tarven.data.model.RegexRule>>(emptyList())
+        private set
+
     init {
         loadApiPresets()
+        loadRegexRules()
     }
 
     private fun loadApiPresets() {
@@ -183,4 +188,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun isApiConfigured(): Boolean = repository.isApiConfigured()
+
+    // --- 正则扩展管理 ---
+    private fun loadRegexRules() {
+        regexRules = repository.getRegexRules()
+    }
+
+    fun addRegexRule(rule: cat.tarven.data.model.RegexRule) {
+        val newList = regexRules + rule
+        repository.saveRegexRules(newList)
+        regexRules = newList
+    }
+
+    fun updateRegexRule(rule: cat.tarven.data.model.RegexRule) {
+        val newList = regexRules.map { if (it.id == rule.id) rule else it }
+        repository.saveRegexRules(newList)
+        regexRules = newList
+    }
+
+    fun deleteRegexRule(id: String) {
+        val newList = regexRules.filter { it.id != id }
+        repository.saveRegexRules(newList)
+        regexRules = newList
+    }
+
+    fun toggleRegexRule(id: String, isEnabled: Boolean) {
+        val newList = regexRules.map { if (it.id == id) it.copy(isEnabled = isEnabled) else it }
+        repository.saveRegexRules(newList)
+        regexRules = newList
+    }
 }

@@ -63,7 +63,7 @@ fun CatTarvenApp() {
             )
         ) { backStackEntry ->
             val characterId = backStackEntry.arguments?.getString("characterId") ?: "new"
-            val character = if (characterId == "new") null else characterRepo.getCharacter(characterId)
+            val character = if (characterId == "new") null else characterViewModel.characters.find { it.id == characterId }
 
             CharacterEditScreen(
                 character = character,

@@ -91,7 +91,6 @@ fun ChatScreen(
 
     var editingMessageId by remember { mutableStateOf<String?>(null) }
     var editingMessageContent by remember { mutableStateOf("") }
-    val itemHeights = remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.unit.Dp>() }
 
     // 判断是否真实贴近列表底部（容差 150px）
     val isAtAbsoluteBottom by remember {
@@ -319,8 +318,8 @@ fun ChatScreen(
                             message = message,
                             characterAvatarUri = character?.avatarUri,
                             enableHtmlRendering = settingsViewModel.enableHtmlRendering,
+                            regexRules = settingsViewModel.regexRules + (character?.regexRules ?: emptyList()),
                             isLastAssistant = isLastAssistant,
-                            itemHeights = itemHeights,
                             onDelete = { chatViewModel.deleteMessage(message.id) },
                             onEdit = { 
                                 editingMessageId = message.id

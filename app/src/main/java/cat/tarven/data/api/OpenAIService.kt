@@ -127,13 +127,13 @@ class OpenAIService {
     }
 
     /**
-     * 非流式聊天补全
+     * 非流式聊天补全 — 返回所有 choices 的内容列表（支持 n > 1）
      */
     suspend fun chatCompletion(
         apiUrl: String,
         apiKey: String,
         request: ChatCompletionRequest
-    ): Result<String> = withContext(Dispatchers.IO) {
+    ): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val url = apiUrl.trimEnd('/') + "/v1/chat/completions"
             val nonStreamRequest = request.copy(stream = false)
@@ -159,13 +159,16 @@ class OpenAIService {
             }
 
             val completionResponse = gson.fromJson(responseBody, ChatCompletionResponse::class.java)
-            val msg = completionResponse.choices?.firstOrNull()?.message
-            var content = msg?.content ?: ""
-            val reasoning = msg?.reasoningContent
-            if (!reasoning.isNullOrEmpty()) {
-                content = "<think>\n$reasoning\n</think>\n\n$content"
-            }
-            Result.success(content)
+            val contents = completionResponse.choices?.map { choice ->
+                val msg = choice.message
+                var content = msg?.content ?: ""
+                val reasoning = msg?.reasoningContent
+                if (!reasoning.isNullOrEmpty()) {
+                    content = "<think>\n$reasoning\n</think>\n\n$content"
+                }
+                content
+            } ?: listOf("")
+            Result.success(if (contents.isEmpty()) listOf("") else contents)
         } catch (e: Exception) {
             Result.failure(e)
         }

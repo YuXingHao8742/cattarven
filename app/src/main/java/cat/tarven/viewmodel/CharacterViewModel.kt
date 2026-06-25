@@ -6,6 +6,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import cat.tarven.data.model.Character
 import cat.tarven.data.repository.CharacterRepository
 import cat.tarven.data.repository.ChatRepository
@@ -36,8 +39,13 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun loadCharacters() {
         isLoading = true
-        characters = characterRepo.getAllCharacters()
-        isLoading = false
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = characterRepo.getAllCharacters()
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                characters = list
+                isLoading = false
+            }
+        }
     }
 
     fun selectCharacter(character: Character) {

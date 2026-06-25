@@ -1,25 +1,30 @@
 package cat.tarven
 
-import cat.tarven.data.model.CharacterCardV2
-import com.google.gson.Gson
-import java.io.File
+import org.junit.Test
+import java.lang.reflect.Modifier
 
-fun main() {
-    val gson = Gson()
-    val jsonFile = File("C:/Users/13779/Desktop/cattarven/app/src/main/java/cat/tarven/data/model/潜意识修改·灵.json")
-    val jsonString = jsonFile.readText()
-
-    val cardV2 = gson.fromJson(jsonString, CharacterCardV2::class.java)
-    val characterBook = cardV2.data.characterBook
-    
-    if (characterBook == null) {
-        println("characterBook is NULL")
-        return
+class TestRun {
+    @Test
+    fun testAnonymousClassVisibility() {
+        val myObject = object {
+            fun updateHeight(heightPx: Float) {
+                println("Updated height: $heightPx")
+            }
+        }
+        
+        val clazz = myObject.javaClass
+        val isPublic = java.lang.reflect.Modifier.isPublic(clazz.modifiers)
+        val isPrivate = java.lang.reflect.Modifier.isPrivate(clazz.modifiers)
+        val isProtected = java.lang.reflect.Modifier.isProtected(clazz.modifiers)
+        
+        println("--------------------------------------------------")
+        println("Class name: ${clazz.name}")
+        println("Is class public? $isPublic")
+        println("Is class private? $isPrivate")
+        println("Is class protected? $isProtected")
+        
+        val isPackagePrivate = !isPublic && !isPrivate && !isProtected
+        println("Is class package-private (default visibility)? $isPackagePrivate")
+        println("--------------------------------------------------")
     }
-    
-    val entries = characterBook.entries
-    println("Entries class: ${entries?.javaClass?.name}")
-    
-    val worldInfo = characterBook.toWorldInfo()
-    println("WorldInfo entries size: ${worldInfo.entries.size}")
 }

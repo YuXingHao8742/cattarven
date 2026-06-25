@@ -160,8 +160,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             n = settingsRepo.autoSwipeCount
         )
 
-        // 拦截并保存日志到实验室
-        labRepository.saveLog(character.name, request)
 
         if (settingsRepo.streamEnabled) {
             streamResponse(request, character)
@@ -226,13 +224,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .catch { error ->
                 // 流出错，更新消息或显示错误
                 if (contentBuilder.isEmpty()) {
-                    messages.removeAt(msgIndex)
+                    if (targetMessageIndex == null) {
+                        // 新增消息场景，安全删除
+                        if (msgIndex < messages.size) {
+                            messages.removeAt(msgIndex)
+                        }
+                    } else {
+                        // 追加 Swipe 场景，回滚新增的空 swipe
+                        if (msgIndex < messages.size) {
+                            val msg = messages[msgIndex]
+                            val rollbackSwipes = msg.swipes.toMutableList()
+                            if (rollbackSwipes.isNotEmpty()) {
+                                rollbackSwipes.removeAt(rollbackSwipes.lastIndex)
+                            }
+                            val prevIdx = rollbackSwipes.lastIndex.coerceAtLeast(0)
+                            messages[msgIndex] = msg.copy(
+                                isStreaming = false,
+                                swipes = rollbackSwipes,
+                                currentSwipeIndex = prevIdx,
+                                content = if (rollbackSwipes.isNotEmpty()) rollbackSwipes[prevIdx].content else msg.content
+                            )
+                        }
+                    }
                     errorMessage = "生成失败: ${error.message}"
                 } else {
-                    messages[msgIndex] = messages[msgIndex].copy(
-                        content = contentBuilder.toString(),
-                        isStreaming = false
-                    )
+                    if (msgIndex < messages.size) {
+                        messages[msgIndex] = messages[msgIndex].copy(
+                            content = contentBuilder.toString(),
+                            isStreaming = false
+                        )
+                    }
                 }
                 setGeneratingStatus(false)
                 saveMessages()
@@ -251,10 +272,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            // 流正常结束
+            // 流正常结束：分离推理内容
             if (msgIndex < messages.size) {
-                messages[msgIndex] = messages[msgIndex].copy(
-                    isStreaming = false
+                val fullContent = contentBuilder.toString()
+                val (reasoning, cleanContent) = extractThinkBlock(fullContent)
+
+                val finalMsg = messages[msgIndex]
+                val updatedSwipes = finalMsg.swipes.toMutableList()
+                val activeIdx = finalMsg.currentSwipeIndex
+                if (activeIdx in updatedSwipes.indices) {
+                    updatedSwipes[activeIdx] = updatedSwipes[activeIdx].copy(
+                        content = cleanContent,
+                        reasoningContent = reasoning
+                    )
+                }
+                messages[msgIndex] = finalMsg.copy(
+                    isStreaming = false,
+                    content = cleanContent,
+                    swipes = updatedSwipes
                 )
             }
             setGeneratingStatus(false)
@@ -279,13 +314,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             result.fold(
-                onSuccess = { content ->
+                onSuccess = { rawContents ->
+                    val parsedSwipes = rawContents.map { raw ->
+                        val (reasoning, clean) = extractThinkBlock(raw)
+                        MessageSwipe(content = clean, reasoningContent = reasoning)
+                    }
                     if (targetMessageIndex == null) {
                         val assistantMessage = ChatMessage(
                             role = MessageRole.ASSISTANT,
-                            content = content,
+                            content = parsedSwipes.first().content,
                             name = character.name,
-                            swipes = listOf(MessageSwipe(content = content)),
+                            swipes = parsedSwipes,
                             currentSwipeIndex = 0
                         )
                         messages.add(assistantMessage)
@@ -293,11 +332,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         val msgIndex = targetMessageIndex
                         val msg = messages[msgIndex]
                         val newSwipes = msg.swipes.toMutableList()
-                        newSwipes.add(MessageSwipe(content = content))
+                        newSwipes.addAll(parsedSwipes)
                         messages[msgIndex] = msg.copy(
                             swipes = newSwipes,
                             currentSwipeIndex = newSwipes.lastIndex,
-                            content = content // 同步主 content
+                            content = parsedSwipes.last().content
                         )
                     }
                 },
@@ -417,6 +456,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 从文本中提取 <think> 块，分离推理内容和正文
+     */
+    private fun extractThinkBlock(text: String): Pair<String?, String> {
+        val thinkRegex = Regex("<think>\\n?(.*?)\\n?</think>\\n*", RegexOption.DOT_MATCHES_ALL)
+        val match = thinkRegex.find(text)
+        return if (match != null) {
+            val reasoning = match.groupValues[1].trim()
+            val content = text.removeRange(match.range).trim()
+            Pair(reasoning.ifBlank { null }, content)
+        } else {
+            Pair(null, text)
+        }
+    }
+
+    /**
      * 停止生成
      */
     fun stopGenerating() {
@@ -441,17 +495,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun regenerateLastResponse() {
         if (isGenerating) return
 
-        // 移除最后一条 assistant 消息
-        while (messages.isNotEmpty() && messages.last().role == MessageRole.ASSISTANT) {
-            messages.removeAt(messages.lastIndex)
-        }
-        saveMessages()
-
-        // 如果有用户消息，取出最后一条重新发送
-        if (messages.isNotEmpty() && messages.last().role == MessageRole.USER) {
-            val lastUserMsg = messages.last().content
-            messages.removeAt(messages.lastIndex)
-            sendMessage(lastUserMsg)
+        if (messages.isNotEmpty() && messages.last().role == MessageRole.ASSISTANT) {
+            regenerateMessage(messages.last().id)
         }
     }
 
@@ -521,7 +566,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun editMessage(messageId: String, newContent: String) {
         val index = messages.indexOfFirst { it.id == messageId }
         if (index >= 0) {
-            messages[index] = messages[index].copy(content = newContent)
+            val msg = messages[index]
+            val updatedSwipes = msg.swipes.toMutableList()
+            val activeIdx = msg.currentSwipeIndex
+            if (activeIdx in updatedSwipes.indices) {
+                updatedSwipes[activeIdx] = updatedSwipes[activeIdx].copy(content = newContent)
+            }
+            messages[index] = msg.copy(content = newContent, swipes = updatedSwipes)
             saveMessages()
         }
     }
@@ -538,12 +589,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentConversation = chatRepo.saveConversation(newConv)
         messages.clear()
 
-        // 添加开场白
-        if (character.firstMessage.isNotBlank()) {
+        // 收集所有开场白（主开场白 + 备用开场白），与 initChat 保持一致
+        val allGreetings = buildList {
+            if (character.firstMessage.isNotBlank()) add(character.firstMessage)
+            addAll(character.alternateGreetings)
+        }.distinct()
+
+        if (allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(character.firstMessage, character),
-                name = character.name
+                content = substituteParams(allGreetings.first(), character),
+                name = character.name,
+                alternateGreetings = allGreetings,
+                currentGreetingIndex = 0
             )
             messages.add(firstMsg)
             saveMessages()
@@ -563,7 +621,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun saveMessages() {
         val conversation = currentConversation ?: return
         val updated = conversation.copy(
-            messages = messages.toMutableList(),
+            messages = messages.toList(),
             updatedAt = System.currentTimeMillis()
         )
         currentConversation = chatRepo.saveConversation(updated)

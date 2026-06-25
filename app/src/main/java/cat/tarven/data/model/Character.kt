@@ -34,7 +34,8 @@ data class Character(
     @SerializedName("created_at")
     val createdAt: Long = System.currentTimeMillis(),
     @SerializedName("updated_at")
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val regexRules: List<RegexRule> = emptyList()
 ) {
     /**
      * 构建完整的角色设定文本，用于作为 system message 发送给 API
@@ -82,6 +83,36 @@ data class CharacterCardData(
     fun toCharacter(): Character {
         // 解析 character_book 为 WorldInfo
         val worldInfo = characterBook?.toWorldInfo()
+        
+        // 解析 extensions.regex_scripts 为 RegexRule 列表
+        val regexRules = try {
+            val regexScripts = extensions?.get("regex_scripts")
+            if (regexScripts != null) {
+                val gson = Gson()
+                val jsonStr = gson.toJson(regexScripts)
+                val listType = object : TypeToken<List<Map<String, Any>>>() {}.type
+                val rawList: List<Map<String, Any>> = gson.fromJson(jsonStr, listType)
+                rawList.mapNotNull { map ->
+                    val disabled = map["disabled"] as? Boolean ?: false
+                    val markdownOnly = map["markdownOnly"] as? Boolean ?: true
+                    val promptOnly = map["promptOnly"] as? Boolean ?: false
+                    // 只导入 markdownOnly（显示用）的规则，跳过 promptOnly 的
+                    if (promptOnly && !markdownOnly) return@mapNotNull null
+                    RegexRule(
+                        id = (map["id"] as? String) ?: UUID.randomUUID().toString(),
+                        name = (map["scriptName"] as? String) ?: "",
+                        pattern = (map["findRegex"] as? String) ?: "",
+                        replacement = (map["replaceString"] as? String) ?: "",
+                        isEnabled = !disabled
+                    )
+                }
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        
         return Character(
             name = name,
             description = description,
@@ -95,7 +126,8 @@ data class CharacterCardData(
             tags = tags,
             alternateGreetings = alternateGreetings,
             creator = creator,
-            worldInfo = worldInfo
+            worldInfo = worldInfo,
+            regexRules = regexRules
         )
     }
 }

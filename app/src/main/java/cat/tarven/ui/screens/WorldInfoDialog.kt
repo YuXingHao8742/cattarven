@@ -69,8 +69,8 @@ fun WorldInfoDialog(
                     entry = editingEntry!!,
                     worldInfo = worldInfo,
                     textFieldColors = textFieldColors,
-                    onSave = { newEntry ->
-                        val newEntries = worldInfo.entries.toMutableList()
+                    onSave = { newEntry, updatedInfo ->
+                        val newEntries = updatedInfo.entries.toMutableList()
                         val index = newEntries.indexOfFirst { it.id == newEntry.id }
                         if (index >= 0) newEntries[index] = newEntry else newEntries.add(newEntry)
                         onUpdate(WorldInfo(newEntries))
@@ -204,7 +204,7 @@ private fun WorldInfoEntryEditor(
     entry: WorldInfoEntry,
     worldInfo: WorldInfo,
     textFieldColors: TextFieldColors,
-    onSave: (WorldInfoEntry) -> Unit,
+    onSave: (WorldInfoEntry, WorldInfo) -> Unit,
     onCancel: () -> Unit
 ) {
     var keysText by remember { mutableStateOf(entry.keys.joinToString(",")) }
@@ -435,7 +435,7 @@ private fun WorldInfoEntryEditor(
                         constant = constantState,
                         disable = disableState
                     )
-                    onSave(newEntry)
+                    onSave(newEntry, updatedWorldInfo)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = TavernPurple, contentColor = TextPrimary)
             ) { Text("保存") }

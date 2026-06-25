@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,12 +66,12 @@ fun ChatBubble(
     message: ChatMessage,
     characterAvatarUri: String? = null,
     enableHtmlRendering: Boolean = false,
+    regexRules: List<cat.tarven.data.model.RegexRule> = emptyList(),
     onDelete: () -> Unit = {},
     onEdit: (String) -> Unit = {},
     onRegenerate: () -> Unit = {},
     onSwitchGreeting: ((Int) -> Unit)? = null,
     isLastAssistant: Boolean = false,
-    itemHeights: androidx.compose.runtime.snapshots.SnapshotStateMap<String, androidx.compose.ui.unit.Dp>? = null,
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == MessageRole.USER
@@ -117,7 +119,8 @@ fun ChatBubble(
         Column(
             modifier = Modifier
                 .padding(horizontal = 8.dp)
-                .widthIn(max = screenWidth * 0.78f)
+                .widthIn(max = screenWidth * 0.78f),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
         ) {
             // 角色名称
             if (!isUser && !isSystem && message.name != null) {
@@ -129,9 +132,6 @@ fun ChatBubble(
                     modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                 )
             }
-
-            val density = androidx.compose.ui.platform.LocalDensity.current
-            val cachedHeight = itemHeights?.get(message.id)
 
             // 消息气泡
             Box(
@@ -165,34 +165,41 @@ fun ChatBubble(
                             bottomEnd = 18.dp
                         )
                     )
-                    .then(
-                        if (cachedHeight != null) Modifier.heightIn(min = cachedHeight) else Modifier
-                    )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .onSizeChanged { size ->
-                        if (size.height > 0) {
-                            val heightDp = with(density) { size.height.toDp() }
-                            // 如果高度变化超过 2dp，再更新缓存，避免频繁重组
-                            val oldHeight = itemHeights?.get(message.id)?.value ?: 0f
-                            if (kotlin.math.abs(oldHeight - heightDp.value) > 2f) {
-                                itemHeights?.put(message.id, heightDp)
-                            }
+            ) {
+                val processedContent = remember(message.displayContent, regexRules) {
+                    var text = message.displayContent
+                    regexRules.filter { it.isEnabled }.forEach { rule ->
+                        try {
+                            val regex = Regex(rule.pattern, RegexOption.DOT_MATCHES_ALL)
+                            text = text.replace(regex, rule.replacement)
+                        } catch (e: Exception) {
+                            // Ignore invalid regex
                         }
                     }
-            ) {
+                    text
+                }
+
                 if (isSystem) {
                     Text(
-                        text = message.content,
+                        text = processedContent,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         fontStyle = FontStyle.Italic
                     )
-                } else {
+                } else if (enableHtmlRendering && !isSystem) {
                     HtmlText(
-                        text = message.content,
-                        isStreaming = message.isStreaming,
-                        color = TextPrimary.toArgb()
+                        html = processedContent,
+                        textColor = TextPrimary
                     )
+                } else {
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Text(
+                            text = processedContent,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary
+                        )
+                    }
                 }
 
                 // 多版本切换器（Swipes 或 旧版开场白）
@@ -254,10 +261,10 @@ fun ChatBubble(
                     )
                     
                     // 操作图标组
-                    IconButton(onClick = { onEdit(message.content) }, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = { onEdit(message.displayContent) }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = "编辑", tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
-                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.content)) }, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.displayContent)) }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
@@ -295,112 +302,49 @@ fun ChatBubble(
 // 已移除 SimpleMarkdownText 及其依赖的变量
 
 @Composable
-fun HtmlText(
-    text: String,
-    isStreaming: Boolean = false,
-    color: Int
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-
-    // 使用 AndroidView 嵌入 WebView
-    androidx.compose.ui.viewinterop.AndroidView<android.webkit.WebView>(
-        factory = { ctx ->
-            android.webkit.WebView(ctx).apply {
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    setSupportZoom(false)
-                    builtInZoomControls = false
-                    displayZoomControls = false
-                }
-                
-                // 禁用长按选词的放大镜，使用自定义样式
-                isLongClickable = false
-                
-                // 彻底禁用 WebView 内部滚动，交由 Compose 的 LazyColumn 处理
-                overScrollMode = android.view.View.OVER_SCROLL_NEVER
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                isFocusable = false
-                isFocusableInTouchMode = false
-
-                // 核心修复：强制释放滑动控制权给外层的 LazyColumn
-                setOnTouchListener { view, event ->
-                    if (event.action == android.view.MotionEvent.ACTION_DOWN || 
-                        event.action == android.view.MotionEvent.ACTION_MOVE) {
-                        view.parent?.requestDisallowInterceptTouchEvent(false)
-                    }
-                    false
-                }
-
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-
-                // 注入 Javascript 接口
-                addJavascriptInterface(object {
-                    @android.webkit.JavascriptInterface
-                    fun openLink(url: String) {
-                        try {
-                            uriHandler.openUri(url)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }, "Android")
-
-                // 拦截页面内的链接点击及处理加载完成事件
-                webViewClient = object : android.webkit.WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
-                        val url = request?.url?.toString()
-                        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
-                            try {
-                                uriHandler.openUri(url)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                            return true
-                        }
-                        return false
-                    }
-
-                    override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        // 页面加载完成后，提取保存的最新文本并渲染
-                        val tagData = view?.tag as? Pair<*, *>
-                        val b64 = tagData?.first as? String ?: return
-                        val streaming = tagData?.second as? Boolean ?: false
-                        
-                        view.evaluateJavascript("javascript:if(typeof setContent === 'function') { setContent('$b64', $streaming); }") {
-                            view.requestLayout()
-                        }
-                    }
-                }
-
-                // 加载本地模板
-                loadUrl("file:///android_asset/chat/chat_template.html")
-            }
-        },
-        update = { webView ->
-            // 将文本进行 Base64 编码，防止引号/换行等破坏 JS 语法
-            val base64Text = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
-            
-            // 将最新数据保存在 tag 中，供 onPageFinished 使用（防止首次加载太慢导致文本丢失）
-            webView.tag = Pair(base64Text, isStreaming)
-            
-            // 尝试直接执行 JS（如果模板已经加载完毕）
-            webView.evaluateJavascript("javascript:if(typeof setContent === 'function') { setContent('$base64Text', $isStreaming); }") {
-                webView.requestLayout()
-            }
-        }
-    )
-}
-
 private fun formatTimestamp(timestamp: Long): String {
     val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
     return sdf.format(java.util.Date(timestamp))
+}
+
+@Composable
+fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color) {
+    val htmlColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { context ->
+            android.webkit.WebView(context).apply {
+                setBackgroundColor(0)
+                settings.javaScriptEnabled = false
+            }
+        },
+        update = { webView ->
+            val styledHtml = """
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body {
+                            color: $htmlColor;
+                            background-color: transparent;
+                            font-family: sans-serif;
+                            line-height: 1.5;
+                            margin: 0;
+                            padding: 0;
+                            word-wrap: break-word;
+                            font-size: 15px;
+                        }
+                        * { max-width: 100%; }
+                        pre { background: rgba(0,0,0,0.1); padding: 8px; border-radius: 4px; overflow-x: auto; }
+                        code { font-family: monospace; }
+                        details { margin-bottom: 8px; }
+                        summary { cursor: pointer; font-weight: bold; }
+                    </style>
+                </head>
+                <body>$html</body>
+                </html>
+            """.trimIndent()
+            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
+        },
+        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+    )
 }

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -74,6 +75,12 @@ fun SettingsScreen(
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var presetNameInput by remember { mutableStateOf("") }
     var presetDropdownExpanded by remember { mutableStateOf(false) }
+
+    var showRegexDialog by remember { mutableStateOf(false) }
+    var editingRegexRule by remember { mutableStateOf<cat.tarven.data.model.RegexRule?>(null) }
+    var regexNameInput by remember { mutableStateOf("") }
+    var regexPatternInput by remember { mutableStateOf("") }
+    var regexReplacementInput by remember { mutableStateOf("") }
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = TavernPurple,
@@ -495,7 +502,76 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = DividerColor)
             Spacer(modifier = Modifier.height(16.dp))
+
+            // === 正则脚本扩展 ===
+            SectionHeader("正则脚本扩展 (Regex Extension)")
+            
+            Text(
+                text = "自定义正则表达式来替换、过滤显示文本。这些规则会在展示前处理内容。",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextMuted,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            settingsViewModel.regexRules.forEach { rule ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = rule.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
+                        Text(text = "Find: ${rule.pattern}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Text(text = "Replace: ${rule.replacement}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    }
+                    Switch(
+                        checked = rule.isEnabled,
+                        onCheckedChange = { settingsViewModel.toggleRegexRule(rule.id, it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = TavernGold,
+                            checkedTrackColor = TavernGoldDark.copy(alpha = 0.5f),
+                            uncheckedThumbColor = TextMuted,
+                            uncheckedTrackColor = DarkSurfaceVariant
+                        )
+                    )
+                    IconButton(onClick = { 
+                        editingRegexRule = rule
+                        regexNameInput = rule.name
+                        regexPatternInput = rule.pattern
+                        regexReplacementInput = rule.replacement
+                        showRegexDialog = true 
+                    }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = TextSecondary)
+                    }
+                    IconButton(onClick = { settingsViewModel.deleteRegexRule(rule.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorRed)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            OutlinedButton(
+                onClick = { 
+                    editingRegexRule = null
+                    regexNameInput = ""
+                    regexPatternInput = ""
+                    regexReplacementInput = ""
+                    showRegexDialog = true 
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TavernPurpleLight),
+                border = BorderStroke(1.dp, TavernPurpleDark)
+            ) {
+                Text("+ 添加新规则")
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
@@ -529,6 +605,74 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showSavePresetDialog = false }) {
+                    Text("取消", color = TextMuted)
+                }
+            },
+            containerColor = DarkSurfaceElevated,
+            titleContentColor = TextPrimary,
+            textContentColor = TextPrimary
+        )
+    }
+
+    if (showRegexDialog) {
+        AlertDialog(
+            onDismissRequest = { showRegexDialog = false },
+            title = { Text(if (editingRegexRule == null) "添加正则规则" else "编辑正则规则", color = TextPrimary) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = regexNameInput,
+                        onValueChange = { regexNameInput = it },
+                        label = { Text("规则名称") },
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = regexPatternInput,
+                        onValueChange = { regexPatternInput = it },
+                        label = { Text("正则表达式 (Pattern)") },
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = regexReplacementInput,
+                        onValueChange = { regexReplacementInput = it },
+                        label = { Text("替换为 (Replacement)") },
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (regexPatternInput.isNotBlank()) {
+                            if (editingRegexRule == null) {
+                                settingsViewModel.addRegexRule(
+                                    cat.tarven.data.model.RegexRule(
+                                        name = regexNameInput,
+                                        pattern = regexPatternInput,
+                                        replacement = regexReplacementInput
+                                    )
+                                )
+                            } else {
+                                settingsViewModel.updateRegexRule(
+                                    editingRegexRule!!.copy(
+                                        name = regexNameInput,
+                                        pattern = regexPatternInput,
+                                        replacement = regexReplacementInput
+                                    )
+                                )
+                            }
+                            showRegexDialog = false
+                        }
+                    }
+                ) {
+                    Text("保存", color = TavernPurpleLight)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRegexDialog = false }) {
                     Text("取消", color = TextMuted)
                 }
             },

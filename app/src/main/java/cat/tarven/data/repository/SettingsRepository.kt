@@ -127,6 +127,24 @@ class SettingsRepository(context: Context) {
         val current = getApiPresets().filter { it.id != id }
         prefs.edit { putString(KEY_API_PRESETS, gson.toJson(current)) }
     }
+
+    // --- Regex Rules 管理 ---
+    private val KEY_REGEX_RULES = "regex_rules"
+
+    fun getRegexRules(): List<cat.tarven.data.model.RegexRule> {
+        val json = prefs.getString(KEY_REGEX_RULES, null)
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val type = object : com.google.gson.reflect.TypeToken<List<cat.tarven.data.model.RegexRule>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveRegexRules(rules: List<cat.tarven.data.model.RegexRule>) {
+        prefs.edit { putString(KEY_REGEX_RULES, gson.toJson(rules)) }
+    }
 }
 
 data class ApiPreset(
