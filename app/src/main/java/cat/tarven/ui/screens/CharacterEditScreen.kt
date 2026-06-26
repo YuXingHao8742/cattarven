@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +30,7 @@ import cat.tarven.data.model.RegexRule
 import cat.tarven.ui.theme.*
 import cat.tarven.viewmodel.CharacterViewModel
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +55,58 @@ fun CharacterEditScreen(
     var regexPatternInput by remember { mutableStateOf("") }
     var regexReplacementInput by remember { mutableStateOf("") }
 
+    val currentCharacter = (character ?: Character()).copy(
+        name = name,
+        description = description,
+        firstMessage = firstMessage,
+        systemPrompt = systemPrompt,
+        creatorNotes = creatorNotes,
+        avatarUri = avatarUri,
+        regexRules = regexRules
+    )
+
+    // 导出状态
+    var showExportDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // 文件保存器 — JSON
+    val jsonSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let {
+            characterViewModel.exportCharacterAsJson(currentCharacter, it)
+        }
+    }
+
+    // 文件保存器 — PNG
+    val pngSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { uri: Uri? ->
+        uri?.let {
+            characterViewModel.exportCharacterAsPng(currentCharacter, it)
+        }
+    }
+
+    // 监听导出结果
+    LaunchedEffect(characterViewModel.exportSuccessMessage) {
+        characterViewModel.exportSuccessMessage?.let { msg ->
+            scope.launch {
+                snackbarHostState.showSnackbar(msg)
+                characterViewModel.clearExportSuccess()
+            }
+        }
+    }
+
+    LaunchedEffect(characterViewModel.errorMessage) {
+        characterViewModel.errorMessage?.let { msg ->
+            scope.launch {
+                snackbarHostState.showSnackbar(msg)
+                characterViewModel.clearError()
+            }
+        }
+    }
+
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -76,12 +130,13 @@ fun CharacterEditScreen(
         unfocusedContainerColor = MaterialTheme.inputBackground
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            
-    ) {
-        TopAppBar(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                
+        ) {
+            TopAppBar(
             title = {
                 Text(
                     text = if (isNew) "创建角色" else "编辑角色",
@@ -93,6 +148,17 @@ fun CharacterEditScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            },
+            actions = {
+                if (!isNew) {
+                    IconButton(onClick = { showExportDialog = true }) {
+                        Icon(
+                            Icons.Default.FileDownload,
+                            contentDescription = "导出角色卡",
+                            tint = TavernGold
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -291,17 +357,7 @@ fun CharacterEditScreen(
         Button(
             onClick = {
                 if (name.isNotBlank()) {
-                    val updatedCharacter = (character ?: Character()).copy(
-                        name = name,
-                        description = description,
-                        firstMessage = firstMessage,
-                        systemPrompt = systemPrompt,
-                        creatorNotes = creatorNotes,
-                        avatarUri = avatarUri,
-                        regexRules = regexRules,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    characterViewModel.saveCharacter(updatedCharacter)
+                    characterViewModel.saveCharacter(currentCharacter.copy(updatedAt = System.currentTimeMillis()))
                     onBack()
                 }
             },
@@ -324,6 +380,68 @@ fun CharacterEditScreen(
                 fontWeight = FontWeight.SemiBold
             )
         }
+        } // 结束 Column
+
+        // Snackbar 提示
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp)
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = MaterialTheme.surfaceElevated,
+                contentColor = TavernGold,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+    } // 结束 Box
+
+    // 导出格式选择对话框
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = {
+                Text(
+                    "导出角色卡",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    "选择导出格式。导出的角色卡将包含您当前的修改（世界书条目、开场白、正则规则等）。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = {
+                        showExportDialog = false
+                        val fileName = "${name.ifBlank { "character" }}.json"
+                        jsonSaver.launch(fileName)
+                    }) {
+                        Text("📄  导出为 JSON", color = TavernPurpleLight)
+                    }
+                    TextButton(onClick = {
+                        showExportDialog = false
+                        val fileName = "${name.ifBlank { "character" }}.png"
+                        pngSaver.launch(fileName)
+                    }) {
+                        Text("🖼️  导出为 PNG", color = TavernGold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("取消", color = MaterialTheme.textMuted)
+                }
+            },
+            containerColor = MaterialTheme.surfaceElevated,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
+        )
     }
 
     if (showRegexDialog) {

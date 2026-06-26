@@ -1,9 +1,18 @@
 package cat.tarven.utils
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.util.Base64
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.util.zip.CRC32
 
 object ImageParser {
     /**
@@ -101,5 +110,101 @@ object ImageParser {
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * 将角色卡 JSON 数据嵌入到 PNG 图片中（SillyTavern 标准 tEXt 块，keyword = "chara"）
+     * @param bitmap 原始图片（如果为 null 则需要先调用 generateDefaultAvatar 生成）
+     * @param jsonString 角色卡 JSON 字符串
+     * @param outputStream 输出流
+     */
+    fun embedCharacterJsonToPng(bitmap: Bitmap, jsonString: String, outputStream: OutputStream) {
+        val pngBytes = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, pngBytes)
+        val originalPng = pngBytes.toByteArray()
+
+        val keyword = "chara"
+        val base64Data = Base64.encodeToString(
+            jsonString.toByteArray(StandardCharsets.UTF_8),
+            Base64.NO_WRAP
+        )
+        val keywordBytes = keyword.toByteArray(StandardCharsets.ISO_8859_1)
+        val nullSeparator = byteArrayOf(0x00)
+        val textBytes = base64Data.toByteArray(StandardCharsets.ISO_8859_1)
+        val chunkData = keywordBytes + nullSeparator + textBytes
+
+        val chunkType = "tEXt".toByteArray(StandardCharsets.US_ASCII)
+        val crc32 = CRC32()
+        crc32.update(chunkType)
+        crc32.update(chunkData)
+        val crcValue = crc32.value.toInt()
+
+        val chunkLength = chunkData.size
+        val textChunk = ByteBuffer.allocate(4 + 4 + chunkLength + 4)
+            .putInt(chunkLength)
+            .put(chunkType)
+            .put(chunkData)
+            .putInt(crcValue)
+            .array()
+
+        val iendMarker = "IEND".toByteArray(StandardCharsets.US_ASCII)
+        var iendPosition = -1
+
+        for (i in (originalPng.size - 12) downTo 8) {
+            if (originalPng[i] == 0x00.toByte() &&
+                originalPng[i + 1] == 0x00.toByte() &&
+                originalPng[i + 2] == 0x00.toByte() &&
+                originalPng[i + 3] == 0x00.toByte() &&
+                originalPng[i + 4] == iendMarker[0] &&
+                originalPng[i + 5] == iendMarker[1] &&
+                originalPng[i + 6] == iendMarker[2] &&
+                originalPng[i + 7] == iendMarker[3]
+            ) {
+                iendPosition = i
+                break
+            }
+        }
+
+        if (iendPosition == -1) {
+            outputStream.write(originalPng)
+            outputStream.write(textChunk)
+        } else {
+            outputStream.write(originalPng, 0, iendPosition)
+            outputStream.write(textChunk)
+            outputStream.write(originalPng, iendPosition, originalPng.size - iendPosition)
+        }
+
+        outputStream.flush()
+    }
+
+    /**
+     * 生成默认的角色头像 — 渐变背景 + 角色名首字
+     */
+    fun generateDefaultAvatar(characterName: String, size: Int = 512): Bitmap {
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val gradientPaint = Paint().apply {
+            shader = LinearGradient(
+                0f, 0f, size.toFloat(), size.toFloat(),
+                0xFF9C6ADE.toInt(), 0xFFE8B84B.toInt(),
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), gradientPaint)
+
+        val initial = (characterName.trim().firstOrNull() ?: '?').uppercase()
+        val textPaint = Paint().apply {
+            color = 0xFFFFFFFF.toInt()
+            textSize = size * 0.4f
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            isAntiAlias = true
+        }
+        val textX = size / 2f
+        val textY = size / 2f - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(initial, textX, textY, textPaint)
+
+        return bitmap
     }
 }

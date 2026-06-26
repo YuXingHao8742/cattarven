@@ -43,6 +43,81 @@ data class Character(
     fun buildCharacterPrompt(): String {
         return description.trim()
     }
+
+    /**
+     * 将内部 Character 对象转换为 SillyTavern V2 标准格式
+     */
+    fun toCharacterCardV2(): CharacterCardV2 {
+        val regexScripts = regexRules.map { rule ->
+            mapOf(
+                "id" to rule.id,
+                "scriptName" to rule.name,
+                "findRegex" to rule.pattern,
+                "replaceString" to rule.replacement,
+                "disabled" to !rule.isEnabled,
+                "markdownOnly" to true,
+                "promptOnly" to false
+            )
+        }
+
+        val entries = worldInfo?.entries?.map { entry ->
+            CharacterBookEntry(
+                uid = entry.id.hashCode(),
+                key = entry.keys,
+                keysecondary = entry.keysecondary,
+                comment = entry.comment,
+                content = entry.content,
+                constant = entry.constant,
+                selective = entry.selective,
+                insertion_order = entry.insertionOrder,
+                enabled = !entry.disable,
+                position = entry.position,
+                depth = entry.depth,
+                role = when (entry.role) {
+                    "system" -> 0
+                    "user" -> 1
+                    "assistant" -> 2
+                    else -> 0
+                }
+            )
+        } ?: emptyList()
+
+        val characterBook = if (entries.isNotEmpty()) {
+            CharacterBook(
+                name = this.name,
+                description = "World info for ${this.name}",
+                entries = entries
+            )
+        } else {
+            null
+        }
+
+        val extensions = if (regexScripts.isNotEmpty()) {
+            mapOf("regex_scripts" to regexScripts)
+        } else {
+            null
+        }
+
+        val data = CharacterCardData(
+            name = this.name,
+            description = this.description,
+            personality = this.personality,
+            scenario = this.scenario,
+            firstMes = this.firstMessage,
+            mesExample = this.messageExample,
+            systemPrompt = this.systemPrompt,
+            creatorNotes = this.creatorNotes,
+            postHistoryInstructions = this.postHistoryInstructions,
+            tags = this.tags,
+            alternateGreetings = this.alternateGreetings,
+            creator = this.creator,
+            characterVersion = "",
+            extensions = extensions,
+            characterBook = characterBook
+        )
+
+        return CharacterCardV2(data = data)
+    }
 }
 
 /**
@@ -214,5 +289,23 @@ data class RawWorldInfoEntry(
     val position: Any? = null,
     val depth: Int? = null,
     val role: Any? = null
+)
+
+/**
+ * SillyTavern V2 角色卡中 character_book.entries 的标准格式（用于导出序列化）
+ */
+data class CharacterBookEntry(
+    val uid: Int = 0,
+    val key: List<String> = emptyList(),
+    val keysecondary: List<String> = emptyList(),
+    val comment: String = "",
+    val content: String = "",
+    val constant: Boolean = false,
+    val selective: Boolean = false,
+    val insertion_order: Int = 0,
+    val enabled: Boolean = true,
+    val position: Int = 1,
+    val depth: Int = 4,
+    val role: Int = 0
 )
 

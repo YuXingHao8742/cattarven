@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import cat.tarven.data.model.Character
 import cat.tarven.data.repository.CharacterRepository
 import cat.tarven.data.repository.ChatRepository
+import com.google.gson.GsonBuilder
+import android.graphics.BitmapFactory
 
 class CharacterViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,6 +35,10 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     // 编辑状态
     var editingCharacter by mutableStateOf<Character?>(null)
+        private set
+
+    // 导出状态
+    var exportSuccessMessage by mutableStateOf<String?>(null)
         private set
 
     init {
@@ -200,6 +206,76 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
             errorMessage = "读取世界书文件失败: ${e.message}"
             null
         }
+    }
+
+    /**
+     * 导出角色卡为 JSON 文件（SillyTavern V2 格式）
+     */
+    fun exportCharacterAsJson(character: Character, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val cardV2 = character.toCharacterCardV2()
+                val gson = GsonBuilder().setPrettyPrinting().create()
+                val jsonString = gson.toJson(cardV2)
+
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(jsonString.toByteArray(Charsets.UTF_8))
+                    outputStream.flush()
+                } ?: throw Exception("无法打开输出流")
+
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    exportSuccessMessage = "角色卡已导出为 JSON"
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    errorMessage = "导出 JSON 失败: ${e.message}"
+                }
+            }
+        }
+    }
+
+    /**
+     * 导出角色卡为 PNG 文件（角色卡数据嵌入 tEXt 块）
+     */
+    fun exportCharacterAsPng(character: Character, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val cardV2 = character.toCharacterCardV2()
+                val gson = GsonBuilder().create()
+                val jsonString = gson.toJson(cardV2)
+
+                // 获取角色头像 Bitmap，没有头像则生成默认头像
+                val bitmap = if (character.avatarUri != null) {
+                    val avatarFile = java.io.File(character.avatarUri)
+                    if (avatarFile.exists()) {
+                        BitmapFactory.decodeFile(avatarFile.absolutePath)
+                            ?: cat.tarven.utils.ImageParser.generateDefaultAvatar(character.name)
+                    } else {
+                        cat.tarven.utils.ImageParser.generateDefaultAvatar(character.name)
+                    }
+                } else {
+                    cat.tarven.utils.ImageParser.generateDefaultAvatar(character.name)
+                }
+
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    cat.tarven.utils.ImageParser.embedCharacterJsonToPng(bitmap, jsonString, outputStream)
+                } ?: throw Exception("无法打开输出流")
+
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    exportSuccessMessage = "角色卡已导出为 PNG"
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    errorMessage = "导出 PNG 失败: ${e.message}"
+                }
+            }
+        }
+    }
+
+    fun clearExportSuccess() {
+        exportSuccessMessage = null
     }
 
     fun startEditCharacter(character: Character?) {

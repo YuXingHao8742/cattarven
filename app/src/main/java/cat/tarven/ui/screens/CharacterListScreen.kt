@@ -81,15 +81,50 @@ fun CharacterListScreen(
     
     var showSearch by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<cat.tarven.data.model.ConversationWithCharacter?>(null) }
+    var showExportDialog by remember { mutableStateOf<cat.tarven.data.model.Character?>(null) }
     var showFab by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // 文件选择器
+    // 文件选择器 - 导入 JSON
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { characterViewModel.importCharacterFromUri(it) }
+    }
+
+    // 文件选择器 - 导出 JSON
+    val jsonSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let { uriPath ->
+            showExportDialog?.let { character ->
+                characterViewModel.exportCharacterAsJson(character, uriPath)
+                showExportDialog = null
+            }
+        }
+    }
+
+    // 文件选择器 - 导出 PNG
+    val pngSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { uri: Uri? ->
+        uri?.let { uriPath ->
+            showExportDialog?.let { character ->
+                characterViewModel.exportCharacterAsPng(character, uriPath)
+                showExportDialog = null
+            }
+        }
+    }
+
+    // 监听导出结果
+    LaunchedEffect(characterViewModel.exportSuccessMessage) {
+        characterViewModel.exportSuccessMessage?.let { msg ->
+            scope.launch {
+                snackbarHostState.showSnackbar(msg)
+                characterViewModel.clearExportSuccess()
+            }
+        }
     }
 
     // 错误提示
@@ -228,6 +263,12 @@ fun CharacterListScreen(
                 confirmButton = {
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
                         TextButton(onClick = {
+                            showExportDialog = convToDelete.character
+                            showDeleteDialog = null
+                        }) {
+                            Text("导出角色卡", color = TavernGold)
+                        }
+                        TextButton(onClick = {
                             characterViewModel.deleteConversation(convToDelete.conversation.characterId, convToDelete.conversation.id)
                             showDeleteDialog = null
                         }) {
@@ -246,6 +287,40 @@ fun CharacterListScreen(
                         Text("取消", color = MaterialTheme.textMuted)
                     }
                 }
+            )
+        }
+
+        // 导出格式选择对话框
+        if (showExportDialog != null) {
+            val charaToExport = showExportDialog!!
+            AlertDialog(
+                onDismissRequest = { showExportDialog = null },
+                title = { Text("导出角色卡", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                text = { Text("选择导出格式。将包含您所有的设定和修改。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = {
+                            val fileName = "${charaToExport.name.ifBlank { "character" }}.json"
+                            jsonSaver.launch(fileName)
+                        }) {
+                            Text("📄  导出为 JSON", color = TavernPurpleLight)
+                        }
+                        TextButton(onClick = {
+                            val fileName = "${charaToExport.name.ifBlank { "character" }}.png"
+                            pngSaver.launch(fileName)
+                        }) {
+                            Text("🖼️  导出为 PNG", color = TavernGold)
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExportDialog = null }) {
+                        Text("取消", color = MaterialTheme.textMuted)
+                    }
+                },
+                containerColor = MaterialTheme.surfaceElevated,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                textContentColor = MaterialTheme.colorScheme.onSurface
             )
         }
 
