@@ -170,7 +170,18 @@ html, body {
 .msg-text {
   color: var(--text-primary);
   line-height: 1.6;
+  white-space: pre-wrap; /* 默认保留换行符和空格 */
 }
+/* 防止内部的 HTML 块级元素受到 pre-wrap 影响导致排版错乱 */
+.msg-text form,
+.msg-text table,
+.msg-text div,
+.msg-text p,
+.msg-text ul,
+.msg-text ol {
+  white-space: normal;
+}
+
 .msg-text-system {
   font-style: italic;
   color: var(--text-muted);
