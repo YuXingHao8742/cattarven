@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CatTarven Chat</title>
+<style>
+/* ===== CSS 变量 - 深色主题 (默认) ===== */
+:root {
+  --bg: transparent;
+  --text-primary: #E8E5F0;
+  --text-secondary: #ADA8BA;
+  --text-muted: #7A7590;
+  --bubble-user: #2A2545;
+  --bubble-user-border: #3D3660;
+  --bubble-assistant: #1A1E2E;
+  --bubble-assistant-border: #2A3045;
+  --bubble-system: #1A2420;
+  --bubble-system-border: #2A3A30;
+  --accent: #9C6ADE;
+  --accent-dark: #7B4FBF;
+  --accent-light: #BE9AEF;
+  --gold: #E8B84B;
+  --error: #EF4444;
+  --divider: #2A2A3A;
+  --font-size: 15px;
+}
+
+/* ===== 浅色主题 ===== */
+:root.light {
+  --bg: transparent;
+  --text-primary: #1A1A2E;
+  --text-secondary: #555570;
+  --text-muted: #8888A0;
+  --bubble-user: #E8E0F5;
+  --bubble-user-border: #D0C8E0;
+  --bubble-assistant: #E5E8F0;
+  --bubble-assistant-border: #D0D5E0;
+  --bubble-system: #E0EBE5;
+  --bubble-system-border: #C0D0C5;
+}
+
+/* ===== 基础样式 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, 'Roboto', 'Noto Sans SC', sans-serif;
+  font-size: var(--font-size);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#chat-container {
+  padding: 8px 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 空状态 ===== */
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 60vh;
+  color: var(--text-muted);
+}
+#empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+#empty-state .text { font-size: 16px; }
+
+/* ===== 消息行 ===== */
+.msg-row {
+  display: flex;
+  padding: 4px 12px;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  word-break: break-word;
+}
+.msg-row-user {
+  flex-direction: row-reverse;
+}
+.msg-row-system {
+  justify-content: center;
+}
+
+/* ===== 头像 ===== */
+.avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--text-primary);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatar-assistant {
+  background: linear-gradient(135deg, #9C6ADE, #E8B84B);
+}
+.avatar-user {
+  background: #7B4FBF;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===== 内容包装 ===== */
+.msg-content-wrapper {
+  max-width: 78%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.msg-row-user .msg-content-wrapper {
+  align-items: flex-end;
+}
+.msg-row-assistant .msg-content-wrapper {
+  align-items: flex-start;
+}
+
+/* ===== 角色名 ===== */
+.msg-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-light);
+  padding: 0 2px 2px;
+}
+
+/* ===== 气泡 ===== */
+.msg-bubble {
+  padding: 8px 12px;
+  border-width: 1px;
+  border-style: solid;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+}
+.bubble-user {
+  background: var(--bubble-user);
+  border-color: var(--bubble-user-border);
+  border-radius: 18px 4px 18px 18px;
+}
+.bubble-assistant {
+  background: var(--bubble-assistant);
+  border-color: var(--bubble-assistant-border);
+  border-radius: 4px 18px 18px 18px;
+}
+.bubble-system {
+  background: var(--bubble-system);
+  border-color: var(--bubble-system-border);
+  border-radius: 12px;
+}
+
+/* ===== 消息文本 ===== */
+.msg-text {
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.msg-text-system {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+.msg-text-prop {
+  font-weight: bold;
+  font-style: italic;
+}
+
+/* 确保用户嵌入的 HTML 内容不会撑破气泡 */
+.msg-text * {
+  max-width: 100%;
+}
+.msg-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.msg-text pre {
+  background: rgba(0,0,0,0.15);
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.msg-text code {
+  font-family: 'Courier New', monospace;
+}
+.msg-text details {
+  margin-bottom: 8px;
+}
+.msg-text summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.msg-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.msg-text th, .msg-text td {
+  border: 1px solid var(--divider);
+  padding: 6px 8px;
+  text-align: left;
+}
+.msg-text a {
+  color: var(--accent-light);
+  text-decoration: underline;
+}
+
+/* ===== Swipe 切换器 ===== */
+.swipe-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  user-select: none;
+}
+.swipe-nav button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.swipe-nav button:active {
+  color: var(--accent);
+}
+.swipe-nav .swipe-counter {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ===== 操作栏 ===== */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  padding: 4px 4px 0;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.msg-row-user .msg-actions {
+  justify-content: flex-end;
+}
+.msg-row-assistant .msg-actions {
+  justify-content: flex-start;
+}
+.msg-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+.action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 2px 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.7;
+  line-height: 1;
+}
+.action-btn:active {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* ===== "回到底部" 按钮（WebView 内部版本，备用） ===== */
+#scroll-to-bottom {
+  display: none;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#scroll-to-bottom.visible {
+  display: flex;
+}
+
+/* ===== 纯文本模式 ===== */
+.msg-text-plain {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+</style>
+</head>
+<body>
+
+<div id="chat-container">
+  <div id="empty-state">
+    <div class="emoji">💬</div>
+    <div class="text" id="empty-text">开始对话</div>
+  </div>
+</div>
+
+<button id="scroll-to-bottom" onclick="smoothScrollToBottom()">▼</button>
+
+<script>
+// ===== 全局状态 =====
+var autoScrollEnabled = true;
+var userIsScrolling = false;
+var scrollTimeout = null;
+var enableHtml = true;
+var currentRegexRules = [];
+// 存储消息的原始内容（用于编辑/复制时获取未经 regex 处理的文本）
+var rawContents = {};
+
+// ===== 滚动管理 =====
+var lastScrollTop = 0;
+window.addEventListener('scroll', function() {
+  var st = window.scrollY || document.documentElement.scrollTop;
+  var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  var isAtBottom = (maxScroll - st) < 80;
+
+  // 用户上滑时暂停自动跟随
+  if (st < lastScrollTop && !isAtBottom) {
+    autoScrollEnabled = false;
+  }
+
+  // 如果用户滑到了底部，重新激活
+  if (isAtBottom) {
+    autoScrollEnabled = true;
+    hideScrollToBottom();
+  }
+
+  // 快速上滑时显示"回到底部"
+  if (!isAtBottom && (lastScrollTop - st) > 100) {
+    showScrollToBottom();
+  }
+
+  lastScrollTop = st;
+
+  // 通知原生层滚动状态
+  clearTimeout(scrollTimeout);
+  scrollTimeout = setTimeout(function() {
+    try { Android.onScrollStateChanged(!isAtBottom && !autoScrollEnabled); } catch(e) {}
+  }, 150);
+}, { passive: true });
+
+function showScrollToBottom() {
+  document.getElementById('scroll-to-bottom').classList.add('visible');
+}
+function hideScrollToBottom() {
+  document.getElementById('scroll-to-bottom').classList.remove('visible');
+}
+function smoothScrollToBottom() {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  autoScrollEnabled = true;
+  hideScrollToBottom();
+}
+function instantScrollToBottom() {
+  window.scrollTo(0, document.documentElement.scrollHeight);
+}
+
+// ===== 主题切换 =====
+function setTheme(isDark) {
+  if (isDark) {
+    document.documentElement.classList.remove('light');
+  } else {
+    document.documentElement.classList.add('light');
+  }
+}
+
+// ===== 字体大小 =====
+function setFontSize(size) {
+  document.documentElement.style.setProperty('--font-size', size + 'px');
+}
+
+// ===== 空状态 =====
+function setEmptyState(charName) {
+  var el = document.getElementById('empty-state');
+  if (el) {
+    el.style.display = 'flex';
+    document.getElementById('empty-text').textContent = '开始与 ' + (charName || '角色') + ' 对话';
+  }
+}
+function hideEmptyState() {
+  var el = document.getElementById('empty-state');
+  if (el) el.style.display = 'none';
+}
+
+// ===== HTML 渲染开关 =====
+function setHtmlRendering(enabled) {
+  enableHtml = enabled;
+}
+
+// ===== 正则规则 =====
+function setRegexRules(rulesJson) {
+  try {
+    currentRegexRules = JSON.parse(rulesJson);
+  } catch(e) {
+    currentRegexRules = [];
+  }
+}
+
+function applyRegex(text) {
+  var result = text;
+  for (var i = 0; i < currentRegexRules.length; i++) {
+    var rule = currentRegexRules[i];
+    if (!rule.enabled) continue;
+    try {
+      var regex = new RegExp(rule.pattern, 'gs');
+      result = result.replace(regex, rule.replacement);
+    } catch(e) {
+      // 忽略无效正则
+    }
+  }
+  return result;
+}
+
+// ===== HTML 转义（当 enableHtml=false 时使用）=====
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+// ===== 时间戳格式化 =====
+function formatTime(timestamp) {
+  var d = new Date(timestamp);
+  var h = d.getHours().toString().padStart(2, '0');
+  var m = d.getMinutes().toString().padStart(2, '0');
+  return h + ':' + m;
+}
+
+// ===== 构建消息 HTML =====
+function buildMessageHtml(msg) {
+  var isUser = msg.role === 'user';
+  var isSystem = msg.role === 'system';
+  var rowClass = isUser ? 'msg-row-user' : (isSystem ? 'msg-row-system' : 'msg-row-assistant');
+
+  // 存储原始内容
+  rawContents[msg.id] = msg.displayContent;
+
+  // 处理内容
+  var processedContent = applyRegex(msg.displayContent);
+
+  var contentHtml;
+  if (isSystem) {
+    contentHtml = '<div class="msg-text msg-text-system">' + escapeHtml(processedContent) + '</div>';
+  } else if (msg.propName) {
+    contentHtml = '<div class="msg-text msg-text-prop">【道具】' + escapeHtml(msg.propName) + '</div>';
+  } else if (enableHtml) {
+    contentHtml = '<div class="msg-text">' + processedContent + '</div>';
+  } else {
+    contentHtml = '<div class="msg-text msg-text-plain">' + escapeHtml(processedContent) + '</div>';
+  }
+
+  // Swipe 切换器
+  var swipeHtml = '';
+  var totalVersions = msg.swipeCount || 0;
+  var currentIdx = msg.currentSwipeIndex || 0;
+  // 也处理旧版开场白
+  if (msg.greetingCount > 1) {
+    totalVersions = msg.greetingCount;
+    currentIdx = msg.currentGreetingIndex || 0;
+  }
+  if (totalVersions > 1) {
+    var prevIdx = currentIdx > 0 ? currentIdx - 1 : totalVersions - 1;
+    var nextIdx = currentIdx < totalVersions - 1 ? currentIdx + 1 : 0;
+    swipeHtml = '<div class="swipe-nav">' +
+      '<button onclick="Android.switchSwipe(\'' + msg.id + '\', ' + prevIdx + ')">◀</button>' +
+      '<span class="swipe-counter">' + (currentIdx + 1) + ' / ' + totalVersions + '</span>' +
+      '<button onclick="Android.switchSwipe(\'' + msg.id + '\', ' + nextIdx + ')">▶</button>' +
+      '</div>';
+  }
+
+  // 气泡类
+  var bubbleClass = isUser ? 'bubble-user' : (isSystem ? 'bubble-system' : 'bubble-assistant');
+
+  // 操作栏
+  var actionsHtml = '';
+  if (!isSystem) {
+    // 安全地转义原始内容以用于 JS 调用
+    var safeId = msg.id;
+    actionsHtml = '<div class="msg-actions">' +
+      '<span class="msg-time">' + formatTime(msg.timestamp) + '</span>' +
+      '<button class="action-btn" onclick="requestEdit(\'' + safeId + '\')">✏️</button>' +
+      '<button class="action-btn" onclick="copyText(\'' + safeId + '\')">📋</button>' +
+      '<button class="action-btn" onclick="Android.deleteMessage(\'' + safeId + '\')">🗑️</button>';
+
+    if (msg.isLastAssistant && !isUser) {
+      actionsHtml += '<button class="action-btn" onclick="Android.regenerateMessage(\'' + safeId + '\')">🔄</button>';
+    }
+    if (!isUser) {
+      actionsHtml += '<button class="action-btn" onclick="requestReincarnate(\'' + safeId + '\')">🌟</button>';
+    }
+    actionsHtml += '</div>';
+  }
+
+  // 头像
+  var avatarHtml = '';
+  if (!isSystem) {
+    if (isUser) {
+      var userInitial = msg.name ? msg.name.charAt(0).toUpperCase() : 'U';
+      avatarHtml = '<div class="avatar avatar-user">' + userInitial + '</div>';
+    } else {
+      if (msg.avatarUri) {
+        avatarHtml = '<div class="avatar avatar-assistant"><img src="file://' + msg.avatarUri + '" onerror="this.parentNode.textContent=\'' + (msg.name ? msg.name.charAt(0).toUpperCase() : 'A') + '\'"></div>';
+      } else {
+        var aiInitial = msg.name ? msg.name.charAt(0).toUpperCase() : 'A';
+        avatarHtml = '<div class="avatar avatar-assistant">' + aiInitial + '</div>';
+      }
+    }
+  }
+
+  // 角色名
+  var nameHtml = '';
+  if (!isUser && !isSystem && msg.name) {
+    nameHtml = '<div class="msg-name">' + escapeHtml(msg.name) + '</div>';
+  }
+
+  var html = '<div class="msg-row ' + rowClass + '" id="msg-' + msg.id + '">' +
+    avatarHtml +
+    '<div class="msg-content-wrapper">' +
+    nameHtml +
+    '<div class="msg-bubble ' + bubbleClass + '">' +
+    contentHtml +
+    swipeHtml +
+    '</div>' +
+    actionsHtml +
+    '</div>' +
+    '</div>';
+
+  return html;
+}
+
+// ===== 操作函数 =====
+function requestEdit(msgId) {
+  var raw = rawContents[msgId] || '';
+  try { Android.requestEditDialog(msgId, raw); } catch(e) {}
+}
+function copyText(msgId) {
+  var raw = rawContents[msgId] || '';
+  try { Android.copyToClipboard(raw); } catch(e) {}
+}
+function requestReincarnate(msgId) {
+  var raw = rawContents[msgId] || '';
+  try { Android.reincarnate(raw); } catch(e) {}
+}
+
+// ===== 全量替换所有消息 =====
+function replaceAllMessages(msgsJson) {
+  var msgs;
+  try { msgs = JSON.parse(msgsJson); } catch(e) { return; }
+
+  var container = document.getElementById('chat-container');
+
+  if (msgs.length === 0) {
+    container.innerHTML = '<div id="empty-state"><div class="emoji">💬</div><div class="text" id="empty-text">开始对话</div></div>';
+    return;
+  }
+
+  hideEmptyState();
+  rawContents = {};
+
+  var html = '';
+  for (var i = 0; i < msgs.length; i++) {
+    html += buildMessageHtml(msgs[i]);
+  }
+  container.innerHTML = html;
+
+  // 拦截表单提交
+  interceptForms();
+
+  // 滚动到底部
+  autoScrollEnabled = true;
+  instantScrollToBottom();
+}
+
+// ===== 追加消息 =====
+function appendMessage(msgJson) {
+  var msg;
+  try { msg = JSON.parse(msgJson); } catch(e) { return; }
+
+  hideEmptyState();
+
+  var container = document.getElementById('chat-container');
+  var emptyState = document.getElementById('empty-state');
+  if (emptyState) emptyState.remove();
+
+  // 更新上一条 AI 消息的 isLastAssistant 状态（移除重新生成按钮）
+  var allRows = container.querySelectorAll('.msg-row-assistant');
+  for (var i = 0; i < allRows.length; i++) {
+    var regenBtn = allRows[i].querySelector('.action-btn[onclick*="regenerateMessage"]');
+    if (regenBtn) regenBtn.remove();
+  }
+
+  var div = document.createElement('div');
+  div.innerHTML = buildMessageHtml(msg);
+  while (div.firstChild) {
+    container.appendChild(div.firstChild);
+  }
+
+  // 拦截新增 DOM 中的表单
+  interceptForms();
+
+  if (autoScrollEnabled) {
+    instantScrollToBottom();
+  }
+}
+
+// ===== 更新消息内容（流式生成）=====
+function updateMessage(msgId, contentHtml, rawContent) {
+  rawContents[msgId] = rawContent;
+  var el = document.querySelector('#msg-' + CSS.escape(msgId) + ' .msg-text');
+  if (!el) return;
+
+  var processed = applyRegex(rawContent);
+  if (enableHtml) {
+    el.innerHTML = processed;
+  } else {
+    el.textContent = processed;
+  }
+
+  // 拦截新增的表单
+  interceptForms();
+
+  if (autoScrollEnabled) {
+    instantScrollToBottom();
+  }
+}
+
+// ===== 删除消息 =====
+function removeMessage(msgId) {
+  var el = document.getElementById('msg-' + msgId);
+  if (el) el.remove();
+  delete rawContents[msgId];
+
+  // 检查是否为空
+  var container = document.getElementById('chat-container');
+  if (container.children.length === 0) {
+    container.innerHTML = '<div id="empty-state"><div class="emoji">💬</div><div class="text" id="empty-text">开始对话</div></div>';
+  }
+}
+
+// ===== 更新 Swipe 状态 =====
+function updateSwipe(msgId, currentIdx, total, newContent, rawContent) {
+  rawContents[msgId] = rawContent;
+
+  // 更新内容
+  var textEl = document.querySelector('#msg-' + CSS.escape(msgId) + ' .msg-text');
+  if (textEl) {
+    var processed = applyRegex(rawContent);
+    if (enableHtml) {
+      textEl.innerHTML = processed;
+    } else {
+      textEl.textContent = processed;
+    }
+  }
+
+  // 更新 Swipe 计数器
+  var navEl = document.querySelector('#msg-' + CSS.escape(msgId) + ' .swipe-nav');
+  if (navEl && total > 1) {
+    var prevIdx = currentIdx > 0 ? currentIdx - 1 : total - 1;
+    var nextIdx = currentIdx < total - 1 ? currentIdx + 1 : 0;
+    navEl.innerHTML =
+      '<button onclick="Android.switchSwipe(\'' + msgId + '\', ' + prevIdx + ')">◀</button>' +
+      '<span class="swipe-counter">' + (currentIdx + 1) + ' / ' + total + '</span>' +
+      '<button onclick="Android.switchSwipe(\'' + msgId + '\', ' + nextIdx + ')">▶</button>';
+  }
+
+  interceptForms();
+}
+
+// ===== 表单拦截 =====
+function interceptForms() {
+  var forms = document.querySelectorAll('form:not([data-intercepted])');
+  for (var i = 0; i < forms.length; i++) {
+    forms[i].setAttribute('data-intercepted', 'true');
+    forms[i].addEventListener('submit', function(e) {
+      e.preventDefault();
+      var formData = new FormData(this);
+      var data = {};
+      formData.forEach(function(value, key) {
+        data[key] = value;
+      });
+      try { Android.onFormSubmit(JSON.stringify(data)); } catch(ex) {}
+    });
+
+    // 同时拦截提交按钮的点击
+    var submitBtns = forms[i].querySelectorAll('button[type="submit"], input[type="submit"], .k-btn-submit');
+    for (var j = 0; j < submitBtns.length; j++) {
+      submitBtns[j].addEventListener('click', function(e) {
+        var form = this.closest('form');
+        if (form) {
+          e.preventDefault();
+          var formData = new FormData(form);
+          var data = {};
+          formData.forEach(function(value, key) {
+            data[key] = value;
+          });
+          try { Android.onFormSubmit(JSON.stringify(data)); } catch(ex) {}
+        }
+      });
+    }
+  }
+}
+
+// ===== 页面初始化 =====
+document.addEventListener('DOMContentLoaded', function() {
+  // 通知原生层页面加载完成
+  try { Android.onPageReady(); } catch(e) {}
+});
+</script>
+</body>
+</html>

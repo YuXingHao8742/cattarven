@@ -1,8 +1,6 @@
 package cat.tarven.ui.components
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,57 +9,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.graphics.toArgb
-import android.widget.TextView
-import android.text.method.LinkMovementMethod
 import cat.tarven.data.model.ChatMessage
 import cat.tarven.data.model.MessageRole
 import cat.tarven.ui.theme.*
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * @deprecated 已废弃。聊天气泡渲染已迁移至 WebView (ChatWebView)。
+ * 保留此函数仅用于向后兼容，新代码请勿使用。
+ */
+@Deprecated(
+    message = "Chat bubbles are now rendered inside ChatWebView. Use ChatWebView instead.",
+    level = DeprecationLevel.WARNING
+)
 @Composable
 fun ChatBubble(
     message: ChatMessage,
@@ -78,8 +49,6 @@ fun ChatBubble(
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == MessageRole.USER
-    val isSystem = message.role == MessageRole.SYSTEM
-    val clipboardManager = LocalClipboardManager.current
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
 
     Row(
@@ -88,8 +57,7 @@ fun ChatBubble(
             .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
-        // AI 头像
-        if (!isUser && !isSystem) {
+        if (!isUser) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -101,292 +69,35 @@ fun ChatBubble(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (characterAvatarUri != null) {
-                    coil.compose.AsyncImage(
-                        model = "file://$characterAvatarUri",
-                        contentDescription = "Avatar",
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Text(
-                        text = (message.name?.firstOrNull() ?: 'A').uppercase(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .widthIn(max = screenWidth * 0.78f),
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
-        ) {
-            // 角色名称
-            if (!isUser && !isSystem && message.name != null) {
                 Text(
-                    text = message.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TavernPurpleLight,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
-                )
-            }
-
-            // 消息气泡
-            Box(
-                modifier = Modifier
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = if (isUser) 18.dp else 4.dp,
-                            topEnd = if (isUser) 4.dp else 18.dp,
-                            bottomStart = 18.dp,
-                            bottomEnd = 18.dp
-                        )
-                    )
-                    .background(
-                        when {
-                            isUser -> MaterialTheme.bubbleUser
-                            isSystem -> MaterialTheme.bubbleSystem
-                            else -> MaterialTheme.bubbleAssistant
-                        }
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = when {
-                            isUser -> MaterialTheme.bubbleUserBorder
-                            isSystem -> MaterialTheme.bubbleSystemBorder
-                            else -> MaterialTheme.bubbleAssistantBorder
-                        },
-                        shape = RoundedCornerShape(
-                            topStart = if (isUser) 18.dp else 4.dp,
-                            topEnd = if (isUser) 4.dp else 18.dp,
-                            bottomStart = 18.dp,
-                            bottomEnd = 18.dp
-                        )
-                    )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                val processedContent = remember(message.displayContent, regexRules) {
-                    var text = message.displayContent
-                    regexRules.filter { it.isEnabled }.forEach { rule ->
-                        try {
-                            val regex = Regex(rule.pattern, RegexOption.DOT_MATCHES_ALL)
-                            text = text.replace(regex, rule.replacement)
-                        } catch (e: Exception) {
-                            // Ignore invalid regex
-                        }
-                    }
-                    text
-                }
-
-                if (isSystem) {
-                    Text(
-                        text = processedContent,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.textMuted,
-                        fontStyle = FontStyle.Italic
-                    )
-                } else if (message.propName != null) {
-                    Text(
-                        text = "【道具】${message.propName}",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = chatFontSize.sp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontStyle = FontStyle.Italic
-                    )
-                } else if (enableHtmlRendering && !isSystem) {
-                    HtmlText(
-                        html = processedContent,
-                        textColor = MaterialTheme.colorScheme.onSurface,
-                        fontSize = chatFontSize
-                    )
-                } else {
-                    androidx.compose.foundation.text.selection.SelectionContainer {
-                        Text(
-                            text = processedContent,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = chatFontSize.sp),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-
-                // 多版本切换器（Swipes 或 旧版开场白）
-                val totalVersions = if (message.swipes.isNotEmpty()) message.swipes.size else message.alternateGreetings.size
-                val currentVersionIdx = if (message.swipes.isNotEmpty()) message.currentSwipeIndex else message.currentGreetingIndex
-
-                if (totalVersions > 1 && onSwitchGreeting != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { 
-                                val newIdx = if (currentVersionIdx > 0) currentVersionIdx - 1 else totalVersions - 1
-                                onSwitchGreeting(newIdx) 
-                            },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一条", tint = MaterialTheme.textMuted)
-                        }
-                        
-                        Text(
-                            text = "${currentVersionIdx + 1} / $totalVersions",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.textMuted,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-
-                        IconButton(
-                            onClick = { 
-                                val newIdx = if (currentVersionIdx < totalVersions - 1) currentVersionIdx + 1 else 0
-                                onSwitchGreeting(newIdx) 
-                            },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一条", tint = MaterialTheme.textMuted)
-                        }
-                    }
-                }
-
-            }
-
-            // 时间戳与操作栏
-            if (!isSystem) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formatTimestamp(message.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.textMuted,
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    )
-                    
-                    // 操作图标组
-                    IconButton(onClick = { onEdit(message.displayContent) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "编辑", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
-                    }
-                    IconButton(onClick = { clipboardManager.setText(AnnotatedString(message.displayContent)) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "复制", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
-                    }
-                    if (isLastAssistant && !isUser) {
-                        IconButton(onClick = onRegenerate, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Refresh, contentDescription = "重新生成", tint = MaterialTheme.textMuted, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                    if (!isUser) {
-                        IconButton(onClick = { onReincarnate(message.displayContent) }, modifier = Modifier.size(24.dp)) {
-                            Text("🌟", fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // 用户头像
-        if (isUser) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(TavernPurpleDark),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = (message.name?.firstOrNull() ?: 'U').uppercase(),
+                    text = (message.name?.firstOrNull() ?: 'A').uppercase(),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
             }
         }
-    }
-}
 
-// 已移除 SimpleMarkdownText 及其依赖的变量
-
-@Composable
-private fun formatTimestamp(timestamp: Long): String {
-    val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(timestamp))
-}
-
-@Composable
-fun HtmlText(html: String, textColor: androidx.compose.ui.graphics.Color, fontSize: Float = 15f) {
-    val htmlColor = String.format("#%06X", 0xFFFFFF and textColor.toArgb())
-    val fontSizePx = fontSize.toInt()
-    val localDensity = androidx.compose.ui.platform.LocalDensity.current
-    
-    // 缓存 WebView 高度，防止 LazyColumn 在快速滑动时因为 WebView 重新测量（高度瞬间为 0）而导致跳屏到顶部
-    var lastKnownHeight by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
-    
-    // 如果文本内容变化（例如 AI 正在生成，或用户编辑），重置缓存高度
-    androidx.compose.runtime.LaunchedEffect(html) {
-        lastKnownHeight = 0
-    }
-
-    androidx.compose.ui.viewinterop.AndroidView(
-        factory = { context ->
-            android.webkit.WebView(context).apply {
-                setBackgroundColor(0)
-                settings.javaScriptEnabled = false
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .widthIn(max = screenWidth * 0.78f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isUser) MaterialTheme.bubbleUser
+                        else MaterialTheme.bubbleAssistant
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = message.displayContent,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = chatFontSize.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
-        },
-        update = { webView ->
-            val styledHtml = """
-                <html>
-                <head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <style>
-                        body {
-                            color: $htmlColor;
-                            background-color: transparent;
-                            font-family: sans-serif;
-                            line-height: 1.5;
-                            margin: 0;
-                            padding: 0;
-                            word-wrap: break-word;
-                            white-space: pre-wrap;
-                            font-size: ${fontSizePx}px;
-                        }
-                        * { max-width: 100%; }
-                        pre { background: rgba(0,0,0,0.1); padding: 8px; border-radius: 4px; overflow-x: auto; }
-                        code { font-family: monospace; }
-                        details { margin-bottom: 8px; }
-                        summary { cursor: pointer; font-weight: bold; }
-                    </style>
-                </head>
-                <body>$html</body>
-                </html>
-            """.trimIndent()
-            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "UTF-8", null)
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (lastKnownHeight > 0) {
-                    Modifier.heightIn(min = with(localDensity) { lastKnownHeight.toDp() })
-                } else {
-                    Modifier.wrapContentHeight()
-                }
-            )
-            .onSizeChanged { size ->
-                if (size.height > 0) {
-                    lastKnownHeight = size.height
-                }
-            }
-    )
+        }
+    }
 }

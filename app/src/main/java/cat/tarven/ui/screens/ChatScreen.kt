@@ -1,8 +1,5 @@
 package cat.tarven.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -10,7 +7,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,21 +15,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -55,19 +43,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cat.tarven.data.model.MessageRole
-import cat.tarven.ui.components.ChatBubble
+import androidx.compose.ui.platform.LocalClipboardManager
+import cat.tarven.data.model.WorldInfo
 import cat.tarven.ui.components.ChatInput
+import cat.tarven.ui.components.ChatWebView
 import cat.tarven.ui.theme.*
 import cat.tarven.viewmodel.ChatViewModel
 import cat.tarven.viewmodel.SettingsViewModel
 import cat.tarven.viewmodel.CharacterViewModel
-import cat.tarven.data.model.WorldInfo
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,83 +69,22 @@ fun ChatScreen(
 ) {
     val character = chatViewModel.currentCharacter
     val messages = chatViewModel.messages
-    val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var showMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+
     var showWorldInfo by remember { mutableStateOf(false) }
     var worldInfo by remember(character) { mutableStateOf(character?.worldInfo ?: WorldInfo()) }
 
     var editingMessageId by remember { mutableStateOf<String?>(null) }
     var editingMessageContent by remember { mutableStateOf("") }
 
-    // 判断是否真实贴近列表底部（容差 150px）
-    val isAtAbsoluteBottom by remember {
-        androidx.compose.runtime.derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val visibleItemsInfo = layoutInfo.visibleItemsInfo
-            if (layoutInfo.totalItemsCount == 0) true
-            else {
-                val lastItem = visibleItemsInfo.lastOrNull()
-                if (lastItem == null) true
-                else if (lastItem.index != layoutInfo.totalItemsCount - 1) false
-                else {
-                    // 判断最后一个元素的底部是否在视口底部附近
-                    lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + 150
-                }
-            }
-        }
-    }
-
-    var autoScrollEnabled by remember { mutableStateOf(true) }
+    // "回到底部"按钮状态 — 由 WebView 的 JS 回调控制
     var showScrollToBottom by remember { mutableStateOf(false) }
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-                // 只有快速滑动时，才触发显示（纵向速度绝对值大于 1500f，说明触发了明显的 Fling）
-                if (kotlin.math.abs(available.y) > 1500f) {
-                    showScrollToBottom = true
-                }
-                return super.onPreFling(available)
-            }
-        }
-    }
-
-    // 监听用户滚动状态，如果是用户主动滑动的，暂停自动跟随
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
-            autoScrollEnabled = false
-        }
-    }
-
-    // 如果用户手动滑到了最底部，重新激活自动跟随，并隐藏到达底部的图标
-    LaunchedEffect(isAtAbsoluteBottom) {
-        if (isAtAbsoluteBottom && !listState.isScrollInProgress) {
-            autoScrollEnabled = true
-            showScrollToBottom = false
-        }
-    }
-
     // 每次进入页面时刷新角色数据，确保获取到最新的世界书等修改
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         chatViewModel.reloadCharacter()
-    }
-
-    // 新增消息时，激活自动滚动并直接沉底
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            autoScrollEnabled = true
-            listState.scrollToItem(messages.size - 1, 100000)
-        }
-    }
-
-    // AI 生成内容时，跟随底部
-    LaunchedEffect(messages.lastOrNull()?.content) {
-        if (messages.isNotEmpty() && autoScrollEnabled) {
-            // 使用极大偏移量迫使 Compose 将元素的底部与视口底部对齐，避免跳动到顶部
-            listState.scrollToItem(messages.size - 1, 100000)
-        }
     }
 
     // 错误提示
@@ -174,9 +100,8 @@ fun ChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            
     ) {
-        // 顶部栏
+        // 顶部栏 — 与原版完全相同
         TopAppBar(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -240,7 +165,7 @@ fun ChatScreen(
                     Text("📖", fontSize = 20.sp)
                 }
                 IconButton(onClick = onSettings) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "设置", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.Settings, contentDescription = "设置", tint = MaterialTheme.colorScheme.onSurface)
                 }
                 IconButton(onClick = {
                     character?.id?.let { onEditCharacter(it) }
@@ -254,60 +179,30 @@ fun ChatScreen(
             )
         )
 
-        // 消息列表
-        Box(modifier = Modifier.weight(1f).nestedScroll(nestedScrollConnection)) {
-            if (messages.isEmpty()) {
-                // 空状态
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "💬",
-                            fontSize = 48.sp
-                        )
-                        Text(
-                            text = "开始与 ${character?.name ?: "角色"} 对话",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.textMuted,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(
-                        items = messages,
-                        key = { it.id }
-                    ) { message ->
-                        val isLastAssistant = messages.lastOrNull { it.role == MessageRole.ASSISTANT } == message
-
-                        ChatBubble(
-                            message = message,
-                            characterAvatarUri = character?.avatarUri,
-                            enableHtmlRendering = settingsViewModel.enableHtmlRendering,
-                            regexRules = settingsViewModel.regexRules + (character?.regexRules ?: emptyList()),
-                            chatFontSize = settingsViewModel.chatFontSize,
-                            isLastAssistant = isLastAssistant,
-                            onDelete = { chatViewModel.deleteMessage(message.id) },
-                            onEdit = { 
-                                editingMessageId = message.id
-                                editingMessageContent = it 
-                            },
-                            onRegenerate = { chatViewModel.regenerateMessage(message.id) },
-                            onReincarnate = { content ->
-                                chatViewModel.reincarnate(content)
-                            },
-                            onSwitchGreeting = { newIdx -> chatViewModel.switchSwipe(message.id, newIdx) }
-                        )
-                    }
-                }
-            }
+        // ===== 核心改造：单一 WebView 替代 LazyColumn =====
+        Box(modifier = Modifier.weight(1f)) {
+            ChatWebView(
+                messages = messages.toList(), // 创建快照
+                isDarkMode = settingsViewModel.isDarkMode,
+                chatFontSize = settingsViewModel.chatFontSize,
+                enableHtmlRendering = settingsViewModel.enableHtmlRendering,
+                regexRules = settingsViewModel.regexRules + (character?.regexRules ?: emptyList()),
+                characterName = character?.name,
+                characterAvatarUri = character?.avatarUri,
+                isGenerating = chatViewModel.isGenerating,
+                onDeleteMessage = { chatViewModel.deleteMessage(it) },
+                onRequestEditDialog = { id, content ->
+                    editingMessageId = id
+                    editingMessageContent = content
+                },
+                onRegenerateMessage = { chatViewModel.regenerateMessage(it) },
+                onReincarnate = { content -> chatViewModel.reincarnate(content) },
+                onSwitchSwipe = { id, idx -> chatViewModel.switchSwipe(id, idx) },
+                onCopyText = { clipboardManager.setText(AnnotatedString(it)) },
+                onFormSubmit = { json -> chatViewModel.sendMessage(json) },
+                onScrollStateChanged = { showScrollToBottom = it },
+                modifier = Modifier.fillMaxSize()
+            )
 
             // Snackbar 错误提示
             SnackbarHost(
@@ -322,39 +217,35 @@ fun ChatScreen(
                 )
             }
 
-            // 到达底部按钮（FAB）
+            // 到达底部按钮（FAB）— 浮在 WebView 之上
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 16.dp)
             ) {
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = showScrollToBottom && !isAtAbsoluteBottom,
+                    visible = showScrollToBottom,
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
-                FloatingActionButton(
-                    onClick = {
-                        scope.launch {
-                            if (messages.isNotEmpty()) {
-                                listState.animateScrollToItem(messages.lastIndex)
-                            }
+                    FloatingActionButton(
+                        onClick = {
+                            // 不再需要操作 LazyListState
+                            // WebView 内部的 JS 会处理滚动
                             showScrollToBottom = false
-                            autoScrollEnabled = true
-                        }
-                    },
-                    containerColor = TavernPurple,
-                    contentColor = androidx.compose.ui.graphics.Color.White,
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape
-                ) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to Bottom")
-                }
+                        },
+                        containerColor = TavernPurple,
+                        contentColor = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to Bottom")
+                    }
                 }
             }
         }
 
-        // 输入框
+        // 输入框 — 保持不变
         ChatInput(
             onSend = { text -> chatViewModel.sendMessage(text) },
             onSendProp = { prop -> chatViewModel.sendMessage(prop.content, propName = prop.name) },
@@ -366,7 +257,7 @@ fun ChatScreen(
         )
     }
 
-    // 世界书弹窗
+    // 世界书弹窗 — 保持不变
     if (showWorldInfo) {
         WorldInfoDialog(
             worldInfo = worldInfo,
@@ -379,7 +270,7 @@ fun ChatScreen(
         )
     }
 
-    // 编辑消息弹窗
+    // 编辑消息弹窗 — 保持不变
     if (editingMessageId != null) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { editingMessageId = null },
