@@ -230,7 +230,7 @@ fun ChatWebView(
     }
 
     // ===== 消息列表变化同步 =====
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, messages.firstOrNull()?.id) {
         if (!pageReady) return@LaunchedEffect
 
         if (messages.isEmpty()) {

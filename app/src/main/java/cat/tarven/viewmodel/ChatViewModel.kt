@@ -47,6 +47,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 初始化聊天 — 加载角色和对话
      */
     fun initChat(convWithChar: cat.tarven.data.model.ConversationWithCharacter) {
+        if (currentConversation?.id == convWithChar.conversation.id) {
+            currentCharacter = convWithChar.character
+            currentConversation = convWithChar.conversation
+            return
+        }
+
+        stopGenerating() // 切换对话前先停止上一次可能正在生成的任务
         currentCharacter = convWithChar.character
         currentConversation = convWithChar.conversation
         messages.clear()
@@ -260,16 +267,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             .collect { token ->
                 contentBuilder.append(token)
-                val snapshotMsg = messages[msgIndex]
-                val swipesList = snapshotMsg.swipes.toMutableList()
-                val activeSwipeIdx = snapshotMsg.currentSwipeIndex
-                if (activeSwipeIdx in swipesList.indices) {
-                    swipesList[activeSwipeIdx] = swipesList[activeSwipeIdx].copy(content = contentBuilder.toString())
+                if (msgIndex < messages.size) {
+                    val snapshotMsg = messages[msgIndex]
+                    val swipesList = snapshotMsg.swipes.toMutableList()
+                    val activeSwipeIdx = snapshotMsg.currentSwipeIndex
+                    if (activeSwipeIdx in swipesList.indices) {
+                        swipesList[activeSwipeIdx] = swipesList[activeSwipeIdx].copy(content = contentBuilder.toString())
+                    }
+                    messages[msgIndex] = snapshotMsg.copy(
+                        content = contentBuilder.toString(), // 兼容旧版
+                        swipes = swipesList
+                    )
                 }
-                messages[msgIndex] = snapshotMsg.copy(
-                    content = contentBuilder.toString(), // 兼容旧版
-                    swipes = swipesList
-                )
             }
 
             // 流正常结束：分离推理内容
