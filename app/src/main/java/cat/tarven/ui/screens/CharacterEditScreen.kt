@@ -3,6 +3,7 @@ package cat.tarven.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +40,7 @@ import kotlinx.coroutines.launch
 fun CharacterEditScreen(
     character: Character?,
     characterViewModel: CharacterViewModel,
+    settingsViewModel: cat.tarven.viewmodel.SettingsViewModel,
     onBack: () -> Unit
 ) {
     val isNew = character == null || character.name.isBlank()
@@ -48,6 +52,8 @@ fun CharacterEditScreen(
     var creatorNotes by remember { mutableStateOf(character?.creatorNotes ?: "") }
     var avatarUri by remember { mutableStateOf(character?.avatarUri) }
     var regexRules by remember { mutableStateOf(character?.regexRules ?: emptyList()) }
+    var chatBackgroundUri by remember { mutableStateOf(character?.chatBackgroundUri) }
+    var chatBackgroundBlurRadius by remember { mutableStateOf(character?.chatBackgroundBlurRadius ?: 10f) }
 
     var showRegexDialog by remember { mutableStateOf(false) }
     var editingRegexRule by remember { mutableStateOf<RegexRule?>(null) }
@@ -62,7 +68,9 @@ fun CharacterEditScreen(
         systemPrompt = systemPrompt,
         creatorNotes = creatorNotes,
         avatarUri = avatarUri,
-        regexRules = regexRules
+        regexRules = regexRules,
+        chatBackgroundUri = chatBackgroundUri,
+        chatBackgroundBlurRadius = chatBackgroundBlurRadius
     )
 
     // 导出状态
@@ -131,6 +139,40 @@ fun CharacterEditScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // 背景渲染逻辑（与 ChatScreen 一致）
+        val bgUri = chatBackgroundUri
+        val globalBgPath = settingsViewModel.backgroundImagePath
+        
+        if (!bgUri.isNullOrBlank() || globalBgPath.isNotBlank()) {
+            val bgSource = if (!bgUri.isNullOrBlank()) {
+                java.io.File(bgUri)
+            } else {
+                java.io.File(globalBgPath)
+            }
+            
+            if (bgSource.exists()) {
+                val blurRadius = if (!bgUri.isNullOrBlank()) chatBackgroundBlurRadius else settingsViewModel.backgroundBlurRadius
+                Image(
+                    painter = coil.compose.rememberAsyncImagePainter(bgSource),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(blurRadius.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (settingsViewModel.isDarkMode)
+                                Color.Black.copy(alpha = 0.55f)
+                            else
+                                Color.White.copy(alpha = 0.55f)
+                        )
+                )
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -348,6 +390,101 @@ fun CharacterEditScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, TavernPurpleDark)
             ) {
                 Text("+ 添加新规则")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = DividerColor)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // === 对话背景设置 ===
+            Text(
+                text = "对话背景",
+                style = MaterialTheme.typography.titleMedium,
+                color = TavernPurpleLight,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Text(
+                text = "为该角色的对话界面设置专属背景图片。未设置时将使用全局背景。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.textMuted,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            val chatBgPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                uri?.let {
+                    val savedPath = characterViewModel.saveChatBackgroundImage(it)
+                    if (savedPath != null) {
+                        chatBackgroundUri = savedPath
+                    }
+                }
+            }
+
+            if (chatBackgroundUri != null) {
+                // 背景预览
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { chatBgPickerLauncher.launch(arrayOf("image/*")) }
+                ) {
+                    AsyncImage(
+                        model = "file://${chatBackgroundUri}",
+                        contentDescription = "对话背景",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                // 模糊度调节
+                Text(
+                    text = "🔮 模糊度: ${chatBackgroundBlurRadius.toInt()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                androidx.compose.material3.Slider(
+                    value = chatBackgroundBlurRadius,
+                    onValueChange = { chatBackgroundBlurRadius = it },
+                    valueRange = 0f..25f,
+                    steps = 24,
+                    colors = androidx.compose.material3.SliderDefaults.colors(
+                        thumbColor = TavernGold,
+                        activeTrackColor = TavernPurple,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+                // 清除按钮
+                OutlinedButton(
+                    onClick = {
+                        // 删除旧文件
+                        chatBackgroundUri?.let { path ->
+                            try { java.io.File(path).delete() } catch (_: Exception) {}
+                        }
+                        chatBackgroundUri = null
+                        chatBackgroundBlurRadius = 10f
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
+                    Text("清除对话背景")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { chatBgPickerLauncher.launch(arrayOf("image/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TavernPurpleLight),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TavernPurpleDark)
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
+                    Text("选择对话背景图片")
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

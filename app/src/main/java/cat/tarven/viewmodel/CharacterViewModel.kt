@@ -185,6 +185,23 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun saveChatBackgroundImage(uri: Uri): String? {
+        return try {
+            val context = getApplication<Application>()
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val bgDir = java.io.File(context.filesDir, "chat_backgrounds").apply { mkdirs() }
+            val fileName = "chat_bg_${System.currentTimeMillis()}.jpg"
+            val file = java.io.File(bgDir, fileName)
+            file.outputStream().use { output ->
+                inputStream.copyTo(output)
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            errorMessage = "保存对话背景失败: ${e.message}"
+            null
+        }
+    }
+
     fun importWorldInfoFromUri(uri: Uri): cat.tarven.data.model.WorldInfo? {
         return try {
             val context = getApplication<Application>()

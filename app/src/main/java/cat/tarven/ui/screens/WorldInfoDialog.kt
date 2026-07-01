@@ -171,7 +171,12 @@ private fun WorldInfoListItem(
         else -> "⚙️"
     }
 
-    var orderText by remember(entry.insertionOrder) { mutableStateOf(entry.insertionOrder.toString()) }
+    var orderText by remember { mutableStateOf(entry.insertionOrder.toString()) }
+    androidx.compose.runtime.LaunchedEffect(entry.insertionOrder) {
+        if ((orderText.toIntOrNull() ?: 0) != entry.insertionOrder) {
+            orderText = entry.insertionOrder.toString()
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),

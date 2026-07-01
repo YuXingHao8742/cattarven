@@ -36,8 +36,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_CHAT_FONT_SIZE = "chat_font_size"
         private const val KEY_BG_IMAGE_PATH = "background_image_path"
         private const val KEY_BG_BLUR_RADIUS = "background_blur_radius"
+        private const val KEY_USER_AVATAR_PATH = "user_avatar_path"
 
-        private const val DEFAULT_SYSTEM_PROMPT =
+        const val DEFAULT_SYSTEM_PROMPT =
             "Write {{char}}'s next reply in a fictional chat between {{char}} and {{user}}. " +
             "Write 1 reply only in internet RP style, avoid repetition, be creative and drive the plot forward. " +
             "Write at least 1 paragraph, up to 4. Always stay in character and avoid repetition."
@@ -76,7 +77,7 @@ class SettingsRepository(context: Context) {
         set(value) = prefs.edit { putFloat(KEY_PRES_PENALTY, value) }
 
     var systemPrompt: String
-        get() = prefs.getString(KEY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT) ?: DEFAULT_SYSTEM_PROMPT
+        get() = prefs.getString(KEY_SYSTEM_PROMPT, "") ?: ""
         set(value) = prefs.edit { putString(KEY_SYSTEM_PROMPT, value) }
 
     var streamEnabled: Boolean
@@ -120,6 +121,10 @@ class SettingsRepository(context: Context) {
         get() = prefs.getFloat(KEY_BG_BLUR_RADIUS, 10f)
         set(value) = prefs.edit { putFloat(KEY_BG_BLUR_RADIUS, value) }
 
+    var userAvatarPath: String
+        get() = prefs.getString(KEY_USER_AVATAR_PATH, "") ?: ""
+        set(value) = prefs.edit { putString(KEY_USER_AVATAR_PATH, value) }
+
     /**
      * 将用户选择的图片复制到 App 内部缓存目录
      */
@@ -148,6 +153,36 @@ class SettingsRepository(context: Context) {
             File(path).delete()
         }
         backgroundImagePath = ""
+    }
+
+    /**
+     * 将用户头像复制到 App 内部缓存目录
+     */
+    fun copyUserAvatarToCache(context: Context, sourceUri: Uri): String? {
+        return try {
+            val avatarDir = File(context.filesDir, "avatars")
+            if (!avatarDir.exists()) avatarDir.mkdirs()
+            val destFile = File(avatarDir, "user_avatar_${System.currentTimeMillis()}.jpg")
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                destFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            destFile.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 清除用户头像
+     */
+    fun clearUserAvatar(context: Context) {
+        val path = userAvatarPath
+        if (path.isNotBlank()) {
+            File(path).delete()
+        }
+        userAvatarPath = ""
     }
 
     /**

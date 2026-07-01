@@ -35,7 +35,9 @@ data class Character(
     val createdAt: Long = System.currentTimeMillis(),
     @SerializedName("updated_at")
     val updatedAt: Long = System.currentTimeMillis(),
-    val regexRules: List<RegexRule> = emptyList()
+    val regexRules: List<RegexRule> = emptyList(),
+    val chatBackgroundUri: String? = null,
+    val chatBackgroundBlurRadius: Float = 10f
 ) {
     /**
      * 构建完整的角色设定文本，用于作为 system message 发送给 API

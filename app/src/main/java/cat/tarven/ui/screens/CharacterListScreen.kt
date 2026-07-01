@@ -159,19 +159,12 @@ fun CharacterListScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "🏰",
-                                fontSize = 24.sp,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text(
-                                text = "CatTavern",
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = "CatTavern",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 },
                 actions = {

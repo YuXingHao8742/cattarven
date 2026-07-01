@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import cat.tarven.data.repository.CharacterRepository
@@ -50,8 +51,11 @@ fun CatTarvenApp() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
         ) {
-            // 背景图片层
-            if (settingsViewModel.backgroundImagePath.isNotBlank()) {
+            // 背景图片层 — 仅在非对话和非角色编辑页面显示全局背景
+            val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+            val isInChatOrEdit = currentRoute?.startsWith("chat/") == true ||
+                currentRoute?.startsWith("character_edit/") == true
+            if (!isInChatOrEdit && settingsViewModel.backgroundImagePath.isNotBlank()) {
                 val bgFile = File(settingsViewModel.backgroundImagePath)
                 if (bgFile.exists()) {
                     Image(
@@ -116,6 +120,7 @@ fun CatTarvenApp() {
                     CharacterEditScreen(
                         character = character,
                         characterViewModel = characterViewModel,
+                        settingsViewModel = settingsViewModel,
                         onBack = { navController.popBackStack() }
                     )
                 }

@@ -41,6 +41,7 @@ fun ChatWebView(
     regexRules: List<RegexRule>,
     characterName: String?,
     characterAvatarUri: String?,
+    userAvatarUri: String?,
     isGenerating: Boolean,
     onDeleteMessage: (String) -> Unit,
     onRequestEditDialog: (String, String) -> Unit,
@@ -50,6 +51,7 @@ fun ChatWebView(
     onCopyText: (String) -> Unit,
     onFormSubmit: (String) -> Unit,
     onScrollStateChanged: (Boolean) -> Unit,
+    editVersion: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -128,7 +130,9 @@ fun ChatWebView(
                 put("timestamp", msg.timestamp)
                 put("name", msg.name)
                 put("propName", msg.propName)
-                put("avatarUri", if (msg.role == MessageRole.ASSISTANT) characterAvatarUri else null)
+                put("avatarUri", if (msg.role == MessageRole.ASSISTANT) characterAvatarUri
+                    else if (msg.role == MessageRole.USER) userAvatarUri
+                    else null)
                 put("isLastAssistant", msg.id == lastAssistantId)
                 put("swipeCount", if (msg.swipes.isNotEmpty()) msg.swipes.size else 0)
                 put("currentSwipeIndex", msg.currentSwipeIndex)
@@ -147,7 +151,9 @@ fun ChatWebView(
             put("timestamp", msg.timestamp)
             put("name", msg.name)
             put("propName", msg.propName)
-            put("avatarUri", if (msg.role == MessageRole.ASSISTANT) characterAvatarUri else null)
+            put("avatarUri", if (msg.role == MessageRole.ASSISTANT) characterAvatarUri
+                else if (msg.role == MessageRole.USER) userAvatarUri
+                else null)
             put("isLastAssistant", isLastAssistant)
             put("swipeCount", if (msg.swipes.isNotEmpty()) msg.swipes.size else 0)
             put("currentSwipeIndex", msg.currentSwipeIndex)
@@ -229,6 +235,14 @@ fun ChatWebView(
         webView.evaluateJavascript("replaceAllMessages('${escapeForJs(json)}')", null)
     }
 
+    // ===== 编辑消息后全量刷新（不滚动）=====
+    LaunchedEffect(editVersion) {
+        if (!pageReady || editVersion == 0) return@LaunchedEffect
+        val json = buildMessageJsonArray(messages)
+        webView.evaluateJavascript("replaceAllMessages('${escapeForJs(json)}', false)", null)
+        lastSyncedContentHash = messages.lastOrNull()?.displayContent?.hashCode()?.toLong() ?: 0L
+    }
+
     // ===== 消息列表变化同步 =====
     LaunchedEffect(messages.size, messages.firstOrNull()?.id) {
         if (!pageReady) return@LaunchedEffect
@@ -256,7 +270,8 @@ fun ChatWebView(
             // 消息减少（删除、新建对话等）或大幅变化 → 全量同步
             else -> {
                 val json = buildMessageJsonArray(messages)
-                webView.evaluateJavascript("replaceAllMessages('${escapeForJs(json)}')", null)
+                val isDelete = messages.size < lastSyncedSize && lastSyncedSize > 0
+                webView.evaluateJavascript("replaceAllMessages('${escapeForJs(json)}', ${!isDelete})", null)
             }
         }
 

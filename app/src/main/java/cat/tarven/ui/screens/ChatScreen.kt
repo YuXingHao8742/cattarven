@@ -48,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.draw.blur
 import cat.tarven.data.model.WorldInfo
 import cat.tarven.ui.components.ChatInput
 import cat.tarven.ui.components.ChatWebView
@@ -97,9 +99,44 @@ fun ChatScreen(
         }
     }
 
+    // 背景处理：优先角色卡背景，其次全局背景
+    val charBg = character?.chatBackgroundUri
+    val charBgBlur = character?.chatBackgroundBlurRadius ?: 10f
+    val globalBg = settingsViewModel.backgroundImagePath
+    val globalBgBlur = settingsViewModel.backgroundBlurRadius
+    val effectiveBg = if (!charBg.isNullOrBlank()) charBg else globalBg.takeIf { it.isNotBlank() }
+    val effectiveBgBlur = if (!charBg.isNullOrBlank()) charBgBlur else globalBgBlur
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 背景图片层
+        if (effectiveBg != null) {
+            val bgFile = java.io.File(effectiveBg)
+            if (bgFile.exists()) {
+                androidx.compose.foundation.Image(
+                    painter = coil.compose.rememberAsyncImagePainter(bgFile),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(effectiveBgBlur.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (settingsViewModel.isDarkMode)
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
+                            else
+                                androidx.compose.ui.graphics.Color.White.copy(alpha = 0.55f)
+                        )
+                )
+            }
+        }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
     ) {
         // 顶部栏 — 与原版完全相同
         TopAppBar(
@@ -189,6 +226,7 @@ fun ChatScreen(
                 regexRules = settingsViewModel.regexRules + (character?.regexRules ?: emptyList()),
                 characterName = character?.name,
                 characterAvatarUri = character?.avatarUri,
+                userAvatarUri = settingsViewModel.userAvatarPath.takeIf { it.isNotBlank() },
                 isGenerating = chatViewModel.isGenerating,
                 onDeleteMessage = { chatViewModel.deleteMessage(it) },
                 onRequestEditDialog = { id, content ->
@@ -201,6 +239,7 @@ fun ChatScreen(
                 onCopyText = { clipboardManager.setText(AnnotatedString(it)) },
                 onFormSubmit = { json -> chatViewModel.sendMessage(json) },
                 onScrollStateChanged = { showScrollToBottom = it },
+                editVersion = chatViewModel.editVersion,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -256,6 +295,7 @@ fun ChatScreen(
             props = settingsViewModel.propItems
         )
     }
+    } // end Box
 
     // 世界书弹窗 — 保持不变
     if (showWorldInfo) {

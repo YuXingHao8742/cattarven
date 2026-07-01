@@ -324,6 +324,46 @@ html, body {
   white-space: pre-wrap;
   word-wrap: break-word;
 }
+
+/* ===== 头像大图覆盖层 ===== */
+#avatar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#avatar-overlay.visible {
+  display: flex;
+  opacity: 1;
+}
+#avatar-overlay img {
+  max-width: 80%;
+  max-height: 80%;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+#avatar-overlay .avatar-initial {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  font-weight: bold;
+  color: var(--text-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
 </style>
 </head>
 <body>
@@ -336,6 +376,7 @@ html, body {
 </div>
 
 <button id="scroll-to-bottom" onclick="smoothScrollToBottom()">▼</button>
+<div id="avatar-overlay" onclick="hideAvatarOverlay()"></div>
 
 <script>
 // ===== 全局状态 =====
@@ -535,13 +576,21 @@ function buildMessageHtml(msg) {
   if (!isSystem) {
     if (isUser) {
       var userInitial = msg.name ? msg.name.charAt(0).toUpperCase() : 'U';
-      avatarHtml = '<div class="avatar avatar-user">' + userInitial + '</div>';
+      if (msg.avatarUri) {
+        avatarHtml = '<div class="avatar avatar-user" onclick="showAvatarOverlay(\'file://' + msg.avatarUri + '\')">' +
+          '<img src="file://' + msg.avatarUri + '" onerror="this.parentNode.textContent=\'' + userInitial + '\'">' +
+          '</div>';
+      } else {
+        avatarHtml = '<div class="avatar avatar-user" onclick="showAvatarOverlay(null, \'' + userInitial + '\', \'avatar-user\')">' + userInitial + '</div>';
+      }
     } else {
       if (msg.avatarUri) {
-        avatarHtml = '<div class="avatar avatar-assistant"><img src="file://' + msg.avatarUri + '" onerror="this.parentNode.textContent=\'' + (msg.name ? msg.name.charAt(0).toUpperCase() : 'A') + '\'"></div>';
+        avatarHtml = '<div class="avatar avatar-assistant" onclick="showAvatarOverlay(\'file://' + msg.avatarUri + '\')">' +
+          '<img src="file://' + msg.avatarUri + '" onerror="this.parentNode.textContent=\'' + (msg.name ? msg.name.charAt(0).toUpperCase() : 'A') + '\'">' +
+          '</div>';
       } else {
         var aiInitial = msg.name ? msg.name.charAt(0).toUpperCase() : 'A';
-        avatarHtml = '<div class="avatar avatar-assistant">' + aiInitial + '</div>';
+        avatarHtml = '<div class="avatar avatar-assistant" onclick="showAvatarOverlay(null, \'' + aiInitial + '\', \'avatar-assistant\')">' + aiInitial + '</div>';
       }
     }
   }
@@ -581,8 +630,33 @@ function requestReincarnate(msgId) {
   try { Android.reincarnate(raw); } catch(e) {}
 }
 
+// ===== 头像大图预览 =====
+function showAvatarOverlay(imgSrc, initial, cssClass) {
+  var overlay = document.getElementById('avatar-overlay');
+  if (imgSrc) {
+    overlay.innerHTML = '<img src="' + imgSrc + '" onclick="event.stopPropagation()">';
+  } else if (initial) {
+    var bgClass = cssClass || 'avatar-assistant';
+    overlay.innerHTML = '<div class="avatar-initial ' + bgClass + '" onclick="event.stopPropagation()">' + initial + '</div>';
+  }
+  overlay.style.display = 'flex';
+  // 触发重排后设置 opacity 以启动动画
+  requestAnimationFrame(function() {
+    overlay.classList.add('visible');
+  });
+}
+function hideAvatarOverlay() {
+  var overlay = document.getElementById('avatar-overlay');
+  overlay.classList.remove('visible');
+  setTimeout(function() {
+    overlay.style.display = 'none';
+    overlay.innerHTML = '';
+  }, 250);
+}
+
 // ===== 全量替换所有消息 =====
-function replaceAllMessages(msgsJson) {
+function replaceAllMessages(msgsJson, shouldScroll) {
+  if (shouldScroll === undefined) shouldScroll = true;
   var msgs;
   try { msgs = JSON.parse(msgsJson); } catch(e) { return; }
 
@@ -606,8 +680,10 @@ function replaceAllMessages(msgsJson) {
   interceptForms();
 
   // 滚动到底部
-  autoScrollEnabled = true;
-  instantScrollToBottom();
+  if (shouldScroll) {
+    autoScrollEnabled = true;
+    instantScrollToBottom();
+  }
 }
 
 // ===== 追加消息 =====

@@ -57,6 +57,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private set
     var backgroundBlurRadius by mutableStateOf(repository.backgroundBlurRadius)
         private set
+    var userAvatarPath by mutableStateOf(repository.userAvatarPath)
+        private set
 
     // 连接测试状态
     var connectionTestResult by mutableStateOf<String?>(null)
@@ -223,6 +225,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun clearBackground(context: Context) {
         repository.clearBackgroundImage(context)
         backgroundImagePath = ""
+    }
+
+    fun setUserAvatarFromUri(context: Context, uri: Uri) {
+        if (userAvatarPath.isNotBlank()) {
+            repository.clearUserAvatar(context)
+        }
+        val cachedPath = repository.copyUserAvatarToCache(context, uri)
+        if (cachedPath != null) {
+            userAvatarPath = cachedPath
+            repository.userAvatarPath = cachedPath
+        }
+    }
+
+    fun clearUserAvatar(context: Context) {
+        repository.clearUserAvatar(context)
+        userAvatarPath = ""
     }
 
 

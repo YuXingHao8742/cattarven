@@ -40,6 +40,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
+    var editVersion by mutableStateOf(0)
+        private set
 
     private var streamingJob: Job? = null
 
@@ -583,6 +585,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             messages[index] = msg.copy(content = newContent, swipes = updatedSwipes)
             saveMessages()
+            editVersion++
         }
     }
 

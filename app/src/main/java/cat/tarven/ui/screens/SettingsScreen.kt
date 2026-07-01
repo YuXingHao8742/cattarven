@@ -283,21 +283,49 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Column(
+
+                val modelListState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+                // 自动滚动到已选中的模型或搜索匹配的模型
+                androidx.compose.runtime.LaunchedEffect(settingsViewModel.modelName, settingsViewModel.availableModels) {
+                    val models = settingsViewModel.availableModels
+                    val currentModel = settingsViewModel.modelName
+                    if (currentModel.isNotBlank() && models.isNotEmpty()) {
+                        // 优先精确匹配
+                        var targetIndex = models.indexOf(currentModel)
+                        // 无精确匹配时模糊搜索
+                        if (targetIndex < 0) {
+                            targetIndex = models.indexOfFirst { it.contains(currentModel, ignoreCase = true) }
+                        }
+                        if (targetIndex >= 0) {
+                            modelListState.animateScrollToItem(targetIndex)
+                        }
+                    }
+                }
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    state = modelListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 200.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .verticalScroll(rememberScrollState())
                         .padding(4.dp)
                 ) {
-                    settingsViewModel.availableModels.forEach { model ->
+                    items(settingsViewModel.availableModels.size) { index ->
+                        val model = settingsViewModel.availableModels[index]
+                        val isSelected = model == settingsViewModel.modelName
+                        val isMatch = settingsViewModel.modelName.isNotBlank() &&
+                            model.contains(settingsViewModel.modelName, ignoreCase = true)
                         Text(
                             text = model,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (model == settingsViewModel.modelName) TavernGold else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (model == settingsViewModel.modelName) FontWeight.Bold else FontWeight.Normal,
+                            color = when {
+                                isSelected -> TavernGold
+                                isMatch -> TavernPurpleLight
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { settingsViewModel.updateModelName(model) }
@@ -575,6 +603,66 @@ fun SettingsScreen(
             // === 用户设置 ===
             SectionHeader("用户设置")
 
+            // 用户头像
+            val avatarPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                uri?.let { settingsViewModel.setUserAvatarFromUri(context, it) }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 头像预览
+                Box(
+                    modifier = Modifier
+                        .height(56.dp)
+                        .width(56.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { avatarPickerLauncher.launch(arrayOf("image/*")) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (settingsViewModel.userAvatarPath.isNotBlank()) {
+                        coil.compose.AsyncImage(
+                            model = "file://${settingsViewModel.userAvatarPath}",
+                            contentDescription = "用户头像",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = settingsViewModel.userName.firstOrNull()?.uppercase() ?: "U",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "👤 用户头像",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (settingsViewModel.userAvatarPath.isNotBlank()) "点击头像更换" else "点击头像设置",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.textMuted
+                    )
+                }
+                if (settingsViewModel.userAvatarPath.isNotBlank()) {
+                    IconButton(onClick = { settingsViewModel.clearUserAvatar(context) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "清除头像", tint = ErrorRed)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             OutlinedTextField(
                 value = settingsViewModel.userName,
                 onValueChange = { settingsViewModel.updateUserName(it) },
@@ -618,6 +706,9 @@ fun SettingsScreen(
                 value = settingsViewModel.systemPrompt,
                 onValueChange = { settingsViewModel.updateSystemPrompt(it) },
                 label = { Text("System Prompt") },
+                placeholder = { 
+                    Text(cat.tarven.data.repository.SettingsRepository.DEFAULT_SYSTEM_PROMPT, color = MaterialTheme.textMuted)
+                },
                 minLines = 4,
                 maxLines = 12,
                 modifier = Modifier.fillMaxWidth(),
