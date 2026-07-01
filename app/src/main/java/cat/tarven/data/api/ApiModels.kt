@@ -5,6 +5,7 @@ import com.google.gson.annotations.SerializedName
 /**
  * OpenAI Chat Completion 请求
  */
+@androidx.annotation.Keep
 data class ChatCompletionRequest(
     val model: String,
     val messages: List<ApiMessage>,
@@ -21,6 +22,7 @@ data class ChatCompletionRequest(
     val n: Int? = 1
 )
 
+@androidx.annotation.Keep
 data class ApiMessage(
     val role: String,
     val content: String,
@@ -30,6 +32,7 @@ data class ApiMessage(
 /**
  * OpenAI Chat Completion 非流式响应
  */
+@androidx.annotation.Keep
 data class ChatCompletionResponse(
     val id: String?,
     val choices: List<Choice>?,
@@ -37,6 +40,7 @@ data class ChatCompletionResponse(
     val error: ApiError?
 )
 
+@androidx.annotation.Keep
 data class Choice(
     val index: Int?,
     val message: ResponseMessage?,
@@ -44,6 +48,7 @@ data class Choice(
     val finishReason: String?
 )
 
+@androidx.annotation.Keep
 data class ResponseMessage(
     val role: String?,
     val content: String?,
@@ -51,6 +56,7 @@ data class ResponseMessage(
     val reasoningContent: String? = null
 )
 
+@androidx.annotation.Keep
 data class Usage(
     @SerializedName("prompt_tokens")
     val promptTokens: Int?,
@@ -60,6 +66,7 @@ data class Usage(
     val totalTokens: Int?
 )
 
+@androidx.annotation.Keep
 data class ApiError(
     val message: String?,
     val type: String?,
@@ -69,11 +76,13 @@ data class ApiError(
 /**
  * SSE 流式响应的 chunk
  */
+@androidx.annotation.Keep
 data class StreamChunk(
     val id: String?,
     val choices: List<StreamChoice>?
 )
 
+@androidx.annotation.Keep
 data class StreamChoice(
     val index: Int?,
     val delta: DeltaMessage?,
@@ -81,6 +90,7 @@ data class StreamChoice(
     val finishReason: String?
 )
 
+@androidx.annotation.Keep
 data class DeltaMessage(
     val role: String?,
     val content: String?,
@@ -91,10 +101,12 @@ data class DeltaMessage(
 /**
  * 模型列表响应
  */
+@androidx.annotation.Keep
 data class ModelsResponse(
     val data: List<ModelInfo>?
 )
 
+@androidx.annotation.Keep
 data class ModelInfo(
     val id: String,
     @SerializedName("owned_by")

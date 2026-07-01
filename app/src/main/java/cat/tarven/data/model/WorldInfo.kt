@@ -4,10 +4,12 @@ package cat.tarven.data.model
  * App 内部的世界书模型 — 不添加 SerializedName，保持 keys 字段名
  * SillyTavern 格式转换只在导入时处理
  */
+@androidx.annotation.Keep
 data class WorldInfo(
     val entries: List<WorldInfoEntry> = emptyList()
 )
 
+@androidx.annotation.Keep
 data class WorldInfoEntry(
     val id: String = java.util.UUID.randomUUID().toString(),
     val keys: List<String> = emptyList(),

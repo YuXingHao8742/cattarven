@@ -9,6 +9,7 @@ import java.util.UUID
  * 角色数据模型
  * 兼容 SillyTavern V2 角色卡 JSON 格式
  */
+@androidx.annotation.Keep
 data class Character(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "",
@@ -125,6 +126,7 @@ data class Character(
 /**
  * SillyTavern V2 角色卡格式（用于导入）
  */
+@androidx.annotation.Keep
 data class CharacterCardV2(
     val spec: String = "chara_card_v2",
     @SerializedName("spec_version")
@@ -132,6 +134,7 @@ data class CharacterCardV2(
     val data: CharacterCardData = CharacterCardData()
 )
 
+@androidx.annotation.Keep
 data class CharacterCardData(
     val name: String = "",
     val description: String = "",
@@ -213,6 +216,7 @@ data class CharacterCardData(
  * SillyTavern V2 角色卡中的 character_book（内嵌世界书）
  * entries 在 JSON 中可能是字典 {"0": {...}, "1": {...}} 或列表 [{...}, {...}]
  */
+@androidx.annotation.Keep
 data class CharacterBook(
     val name: String? = null,
     val description: String? = null,
@@ -273,6 +277,7 @@ data class CharacterBook(
 /**
  * SillyTavern 原始世界书词条格式（用于反序列化）
  */
+@androidx.annotation.Keep
 data class RawWorldInfoEntry(
     val uid: Int? = null,
     val key: List<String>? = null,
@@ -296,6 +301,7 @@ data class RawWorldInfoEntry(
 /**
  * SillyTavern V2 角色卡中 character_book.entries 的标准格式（用于导出序列化）
  */
+@androidx.annotation.Keep
 data class CharacterBookEntry(
     val uid: Int = 0,
     val key: List<String> = emptyList(),

@@ -6,6 +6,7 @@ import java.util.UUID
 /**
  * 对话数据模型
  */
+@androidx.annotation.Keep
 data class Conversation(
     val id: String = UUID.randomUUID().toString(),
     @SerializedName("character_id")
@@ -21,6 +22,7 @@ data class Conversation(
 /**
  * 带有角色信息的对话模型（用于主页列表展示）
  */
+@androidx.annotation.Keep
 data class ConversationWithCharacter(
     val conversation: Conversation,
     val character: Character

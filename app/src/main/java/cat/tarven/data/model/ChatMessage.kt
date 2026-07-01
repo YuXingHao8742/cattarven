@@ -2,6 +2,7 @@ package cat.tarven.data.model
 
 import java.util.UUID
 
+@androidx.annotation.Keep
 data class MessageSwipe(
     val content: String,
     val reasoningContent: String? = null
@@ -10,6 +11,7 @@ data class MessageSwipe(
 /**
  * 聊天消息数据模型
  */
+@androidx.annotation.Keep
 data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: MessageRole = MessageRole.USER,
@@ -31,6 +33,7 @@ data class ChatMessage(
         get() = if (swipes.isNotEmpty() && currentSwipeIndex in swipes.indices) swipes[currentSwipeIndex].reasoningContent else null
 }
 
+@androidx.annotation.Keep
 enum class MessageRole(val value: String) {
     SYSTEM("system"),
     USER("user"),
