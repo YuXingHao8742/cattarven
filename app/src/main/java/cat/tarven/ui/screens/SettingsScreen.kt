@@ -789,7 +789,31 @@ fun SettingsScreen(
             HorizontalDivider(color = DividerColor)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === 快捷道具管理 ===
+            // === 上文状态栏剥离 ===
+            SectionHeader("🧹 上文状态栏剥离")
+
+            Text(
+                text = "填入正则表达式后，发送给 AI 的历史消息中，除最后一条 AI 回复外，其余 AI 回复将自动剥离匹配到的内容（例如状态栏）。留空则不启用。仅影响发送，不影响显示。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.textMuted,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            OutlinedTextField(
+                value = settingsViewModel.statusBarStripRegex,
+                onValueChange = { settingsViewModel.updateStatusBarStripRegex(it) },
+                label = { Text("状态栏匹配正则") },
+                placeholder = { Text("例如: <status>[\\\\s\\\\S]*?</status>", color = MaterialTheme.textMuted) },
+                minLines = 2,
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = DividerColor)
+            Spacer(modifier = Modifier.height(16.dp))
             SectionHeader("🎒 快捷道具管理")
             
             Text(

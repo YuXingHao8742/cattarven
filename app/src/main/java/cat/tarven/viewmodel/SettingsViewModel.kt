@@ -43,6 +43,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private set
     var userPersona by mutableStateOf(repository.userPersona)
         private set
+    var statusBarStripRegex by mutableStateOf(repository.statusBarStripRegex)
+        private set
     var autoSwipeCount by mutableStateOf(repository.autoSwipeCount)
         private set
 
@@ -187,6 +189,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateUserPersona(value: String) {
         userPersona = value
         repository.userPersona = value
+    }
+
+    fun updateStatusBarStripRegex(value: String) {
+        statusBarStripRegex = value
+        repository.statusBarStripRegex = value
     }
 
     // --- 显示与外观 ---

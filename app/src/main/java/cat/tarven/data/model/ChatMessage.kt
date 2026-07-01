@@ -2,6 +2,17 @@ package cat.tarven.data.model
 
 import java.util.UUID
 
+/**
+ * 消息附件（图片或文本文件）
+ */
+@androidx.annotation.Keep
+data class Attachment(
+    val type: String,        // "image" 或 "text"
+    val fileName: String,    // 原始文件名
+    val filePath: String,    // 本地缓存路径
+    val mimeType: String     // MIME 类型
+)
+
 @androidx.annotation.Keep
 data class MessageSwipe(
     val content: String,
@@ -23,7 +34,8 @@ data class ChatMessage(
     val currentGreetingIndex: Int = 0,
     val swipes: List<MessageSwipe> = emptyList(),
     val currentSwipeIndex: Int = 0,
-    val propName: String? = null
+    val propName: String? = null,
+    val attachments: List<Attachment> = emptyList()
 ) {
     // 动态获取当前展示的回复内容
     val displayContent: String
@@ -45,3 +57,4 @@ enum class MessageRole(val value: String) {
         }
     }
 }
+

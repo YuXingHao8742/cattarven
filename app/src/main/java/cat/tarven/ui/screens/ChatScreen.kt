@@ -50,6 +50,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.draw.blur
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import cat.tarven.data.model.Attachment
 import cat.tarven.data.model.WorldInfo
 import cat.tarven.ui.components.ChatInput
 import cat.tarven.ui.components.ChatWebView
@@ -74,6 +78,53 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    // 文件选择器
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        try {
+            val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val isImage = mimeType.startsWith("image/")
+
+            // 限制最多 3 张图片
+            if (isImage) {
+                val currentImageCount = chatViewModel.pendingAttachments.count { it.type == "image" }
+                if (currentImageCount >= 3) return@rememberLauncherForActivityResult
+            }
+
+            // 获取文件名
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            val fileName = cursor?.use {
+                if (it.moveToFirst()) {
+                    val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) it.getString(idx) else null
+                } else null
+            } ?: "file_${System.currentTimeMillis()}"
+
+            // 复制文件到应用内部缓存
+            val cacheDir = java.io.File(context.filesDir, "attachments").apply { mkdirs() }
+            val ext = if (isImage) mimeType.substringAfter("/", "png") else "txt"
+            val cachedFile = java.io.File(cacheDir, "att_${System.currentTimeMillis()}.$ext")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                cachedFile.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            val attachment = Attachment(
+                type = if (isImage) "image" else "text",
+                fileName = fileName,
+                filePath = cachedFile.absolutePath,
+                mimeType = mimeType
+            )
+            chatViewModel.pendingAttachments.add(attachment)
+        } catch (e: Exception) {
+            scope.launch {
+                snackbarHostState.showSnackbar("读取文件失败: ${e.message}")
+            }
+        }
+    }
 
     var showWorldInfo by remember { mutableStateOf(false) }
     var worldInfo by remember(character) { mutableStateOf(character?.worldInfo ?: WorldInfo()) }
@@ -288,13 +339,19 @@ fun ChatScreen(
         ChatInput(
             text = chatViewModel.chatInputText,
             onTextChange = { chatViewModel.chatInputText = it },
-            onSend = { text -> chatViewModel.sendMessage(text) },
+            onSend = { text ->
+                val attachmentsCopy = chatViewModel.pendingAttachments.toList()
+                chatViewModel.sendMessage(text, attachments = attachmentsCopy)
+                chatViewModel.pendingAttachments.clear()
+            },
             onSendProp = { prop -> chatViewModel.sendMessage(prop.content, propName = prop.name) },
             onStop = { chatViewModel.stopGenerating() },
             onNewConversation = { chatViewModel.newConversation() },
-            onRegenerate = { chatViewModel.regenerateLastResponse() },
+            onPickFile = { filePicker.launch("*/*") },
             isGenerating = chatViewModel.isGenerating,
-            props = settingsViewModel.propItems
+            props = settingsViewModel.propItems,
+            attachments = chatViewModel.pendingAttachments.toList(),
+            onRemoveAttachment = { index -> chatViewModel.pendingAttachments.removeAt(index) }
         )
     }
     } // end Box

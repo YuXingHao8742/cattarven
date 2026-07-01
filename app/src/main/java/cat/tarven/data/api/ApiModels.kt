@@ -25,7 +25,7 @@ data class ChatCompletionRequest(
 @androidx.annotation.Keep
 data class ApiMessage(
     val role: String,
-    val content: String,
+    val content: Any, // String 或 List<Map> (多模态)
     val name: String? = null
 )
 

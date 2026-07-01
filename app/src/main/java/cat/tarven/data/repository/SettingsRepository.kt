@@ -29,6 +29,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_SWIPE_COUNT = "auto_swipe_count"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_PERSONA = "user_persona"
+        private const val KEY_STATUS_BAR_STRIP_REGEX = "status_bar_strip_regex"
 
         // 显示与外观
         private const val KEY_IS_DARK_MODE = "is_dark_mode"
@@ -99,6 +100,10 @@ class SettingsRepository(context: Context) {
     var userPersona: String
         get() = prefs.getString(KEY_USER_PERSONA, "") ?: ""
         set(value) = prefs.edit { putString(KEY_USER_PERSONA, value) }
+
+    var statusBarStripRegex: String
+        get() = prefs.getString(KEY_STATUS_BAR_STRIP_REGEX, "") ?: ""
+        set(value) = prefs.edit { putString(KEY_STATUS_BAR_STRIP_REGEX, value) }
 
     // --- 显示与外观 ---
     var isDarkMode: Boolean

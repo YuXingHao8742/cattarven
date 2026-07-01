@@ -138,6 +138,9 @@ fun ChatWebView(
                 put("currentSwipeIndex", msg.currentSwipeIndex)
                 put("greetingCount", if (msg.alternateGreetings.isNotEmpty()) msg.alternateGreetings.size else 0)
                 put("currentGreetingIndex", msg.currentGreetingIndex)
+                put("attachments", msg.attachments.map { att ->
+                    mapOf("type" to att.type, "fileName" to att.fileName, "filePath" to att.filePath)
+                })
             }
         }
         return gson.toJson(list)
@@ -159,6 +162,9 @@ fun ChatWebView(
             put("currentSwipeIndex", msg.currentSwipeIndex)
             put("greetingCount", if (msg.alternateGreetings.isNotEmpty()) msg.alternateGreetings.size else 0)
             put("currentGreetingIndex", msg.currentGreetingIndex)
+            put("attachments", msg.attachments.map { att ->
+                mapOf("type" to att.type, "fileName" to att.fileName, "filePath" to att.filePath)
+            })
         }
         return gson.toJson(map)
     }

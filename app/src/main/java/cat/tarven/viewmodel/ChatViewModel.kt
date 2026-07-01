@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import cat.tarven.data.api.ApiMessage
 import cat.tarven.data.api.ChatCompletionRequest
 import cat.tarven.data.api.OpenAIService
+import cat.tarven.data.model.Attachment
 import cat.tarven.data.model.Character
 import cat.tarven.data.model.ChatMessage
 import cat.tarven.data.model.Conversation
@@ -43,6 +44,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var editVersion by mutableStateOf(0)
         private set
     var chatInputText by mutableStateOf("")
+    val pendingAttachments = mutableStateListOf<Attachment>()
 
     private var streamingJob: Job? = null
 
@@ -132,9 +134,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 发送用户消息并请求 AI 回复
      * 发送消息
      */
-    fun sendMessage(content: String, propName: String? = null) {
+    fun sendMessage(content: String, propName: String? = null, attachments: List<Attachment> = emptyList()) {
         val character = currentCharacter ?: return
-        if (content.isBlank() || isGenerating) return
+        val hasAttachments = attachments.isNotEmpty()
+        if (content.isBlank() && !hasAttachments || isGenerating) return
 
         if (!settingsRepo.isApiConfigured()) {
             errorMessage = "请先在设置中配置 API 地址、密钥和模型名称"
@@ -146,7 +149,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             role = MessageRole.USER,
             content = content,
             name = settingsRepo.userName.takeIf { it.isNotBlank() } ?: "User",
-            propName = propName
+            propName = propName,
+            attachments = attachments
         )
         messages.add(userMessage)
         saveMessages()
@@ -187,6 +191,72 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 清理请求中的 Base64 图片数据，防止实验室查看 JSON 时卡死
+     */
+    private fun sanitizeRequestForLog(request: ChatCompletionRequest): ChatCompletionRequest {
+        val safeMessages = request.messages.map { msg ->
+            if (msg.content is List<*>) {
+                val newContent = msg.content.map { part ->
+                    if (part is Map<*, *> && part["type"] == "image_url") {
+                        mapOf(
+                            "type" to "image_url",
+                            "image_url" to mapOf("url" to "<图片 Base64 编码已隐藏>")
+                        )
+                    } else part
+                }
+                msg.copy(content = newContent)
+            } else {
+                msg
+            }
+        }
+        return request.copy(messages = safeMessages)
+    }
+
+    /**
+     * 压缩并缩放图片，返回 JPEG 的 Base64 编码，防止图片过大导致 HTTP 413
+     */
+    private fun getCompressedImageBase64(filePath: String): String? {
+        try {
+            val options = android.graphics.BitmapFactory.Options()
+            options.inJustDecodeBounds = true
+            android.graphics.BitmapFactory.decodeFile(filePath, options)
+            
+            var scale = 1
+            while (options.outWidth / scale / 2 >= 1024 && options.outHeight / scale / 2 >= 1024) {
+                scale *= 2
+            }
+            
+            val decodeOptions = android.graphics.BitmapFactory.Options()
+            decodeOptions.inSampleSize = scale
+            val bitmap = android.graphics.BitmapFactory.decodeFile(filePath, decodeOptions) ?: return null
+            
+            // Limit max dimension to 1024
+            val maxDim = 1024f
+            val width = bitmap.width
+            val height = bitmap.height
+            val finalBitmap = if (width > maxDim || height > maxDim) {
+                val ratio = Math.min(maxDim / width, maxDim / height)
+                android.graphics.Bitmap.createScaledBitmap(bitmap, (width * ratio).toInt(), (height * ratio).toInt(), true)
+            } else {
+                bitmap
+            }
+            
+            val outputStream = java.io.ByteArrayOutputStream()
+            // 统一压缩为 JPEG，丢弃透明通道但大大减小体积
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+            val bytes = outputStream.toByteArray()
+            
+            if (finalBitmap != bitmap) finalBitmap.recycle()
+            bitmap.recycle()
+            
+            return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    /**
      * 流式请求
      */
     private fun streamResponse(request: ChatCompletionRequest, character: Character, targetMessageIndex: Int? = null) {
@@ -223,8 +293,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 messages = request.messages.map { it.copy(name = it.name?.let { n -> sanitizeApiName(n) }) }
             )
             
-            // 将发给大模型的最终 JSON 保存到本地实验室记录中
-            labRepository.saveLog(character.name, safeRequest)
+            // 将发给大模型的最终 JSON 保存到本地实验室记录中 (去除巨大的 Base64 字符串防卡死)
+            val logRequest = sanitizeRequestForLog(safeRequest)
+            labRepository.saveLog(character.name, logRequest)
 
             apiService.streamChatCompletion(
                 apiUrl = settingsRepo.apiUrl,
@@ -317,7 +388,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val safeRequest = request.copy(
                 messages = request.messages.map { it.copy(name = it.name?.let { n -> sanitizeApiName(n) }) }
             )
-            labRepository.saveLog(character.name, safeRequest)
+            
+            val logRequest = sanitizeRequestForLog(safeRequest)
+            labRepository.saveLog(character.name, logRequest)
 
             val result = apiService.chatCompletion(
                 apiUrl = settingsRepo.apiUrl,
@@ -430,8 +503,65 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // ⑦ 历史对话
-        val historyMessages = messagesToInclude.filter { !it.isStreaming }.map {
-            ApiMessage(role = it.role.value, content = it.displayContent)
+        // 状态栏剥离：找到最后一条 assistant 消息的索引
+        val nonStreamingMessages = messagesToInclude.filter { !it.isStreaming }
+        val lastAssistantIndex = nonStreamingMessages.indexOfLast { it.role == MessageRole.ASSISTANT }
+        val stripRegexPattern = settingsRepo.statusBarStripRegex.trim()
+        val stripRegex = if (stripRegexPattern.isNotBlank()) {
+            try { Regex(stripRegexPattern, RegexOption.DOT_MATCHES_ALL) } catch (_: Exception) { null }
+        } else null
+
+        val historyMessages = nonStreamingMessages.mapIndexed { index, msg ->
+            // 对非最后一条 assistant 消息应用状态栏剥离
+            val shouldStrip = stripRegex != null && msg.role == MessageRole.ASSISTANT && index != lastAssistantIndex
+            val content = if (shouldStrip) {
+                stripRegex!!.replace(msg.displayContent, "").trim()
+            } else {
+                msg.displayContent
+            }
+
+            if (msg.attachments.isNotEmpty()) {
+                // 构建多模态 content
+                val contentParts = mutableListOf<Map<String, Any>>()
+
+                // 先添加附件内容
+                for (att in msg.attachments) {
+                    if (att.type == "image") {
+                        try {
+                            val base64 = getCompressedImageBase64(att.filePath)
+                            if (base64 != null) {
+                                // 统一使用 image/jpeg
+                                val dataUrl = "data:image/jpeg;base64,$base64"
+                                contentParts.add(mapOf(
+                                    "type" to "image_url",
+                                    "image_url" to mapOf("url" to dataUrl)
+                                ))
+                            }
+                        } catch (_: Exception) { /* 跳过无法读取的图片 */ }
+                    } else {
+                        // 文本附件：读取文件内容拼入文本
+                        try {
+                            val file = java.io.File(att.filePath)
+                            if (file.exists()) {
+                                val fileContent = file.readText(Charsets.UTF_8)
+                                contentParts.add(mapOf(
+                                    "type" to "text",
+                                    "text" to "[用户上传了文件: ${att.fileName}]\n文件内容:\n$fileContent"
+                                ))
+                            }
+                        } catch (_: Exception) { /* 跳过无法读取的文件 */ }
+                    }
+                }
+
+                // 用户输入的文字
+                if (content.isNotBlank()) {
+                    contentParts.add(mapOf("type" to "text", "text" to content))
+                }
+
+                ApiMessage(role = msg.role.value, content = contentParts as Any)
+            } else {
+                ApiMessage(role = msg.role.value, content = content as Any)
+            }
         }
         apiMessages.addAll(historyMessages)
 

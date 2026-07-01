@@ -192,6 +192,32 @@ html, body {
   font-style: italic;
 }
 
+/* ===== 附件预览 ===== */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.msg-attachment-img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  cursor: pointer;
+  object-fit: cover;
+}
+.msg-attachment-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(156, 106, 222, 0.15);
+  border: 1px solid rgba(156, 106, 222, 0.3);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--accent-light);
+}
+
 /* 确保用户嵌入的 HTML 内容不会撑破气泡 */
 .msg-text * {
   max-width: 100%;
@@ -518,15 +544,30 @@ function buildMessageHtml(msg) {
   // 处理内容
   var processedContent = applyRegex(msg.displayContent);
 
+  // 附件渲染
+  var attachmentHtml = '';
+  if (msg.attachments && msg.attachments.length > 0) {
+    attachmentHtml = '<div class="msg-attachments">';
+    for (var ai = 0; ai < msg.attachments.length; ai++) {
+      var att = msg.attachments[ai];
+      if (att.type === 'image') {
+        attachmentHtml += '<img class="msg-attachment-img" src="file://' + att.filePath + '" onclick="showAvatarOverlay(\'file://' + att.filePath + '\')">';
+      } else {
+        attachmentHtml += '<div class="msg-attachment-file">📄 ' + escapeHtml(att.fileName) + '</div>';
+      }
+    }
+    attachmentHtml += '</div>';
+  }
+
   var contentHtml;
   if (isSystem) {
     contentHtml = '<div class="msg-text msg-text-system">' + escapeHtml(processedContent) + '</div>';
   } else if (msg.propName) {
     contentHtml = '<div class="msg-text msg-text-prop">【道具】' + escapeHtml(msg.propName) + '</div>';
   } else if (enableHtml) {
-    contentHtml = '<div class="msg-text">' + processedContent + '</div>';
+    contentHtml = attachmentHtml + '<div class="msg-text">' + processedContent + '</div>';
   } else {
-    contentHtml = '<div class="msg-text msg-text-plain">' + escapeHtml(processedContent) + '</div>';
+    contentHtml = attachmentHtml + '<div class="msg-text msg-text-plain">' + escapeHtml(processedContent) + '</div>';
   }
 
   // Swipe 切换器
