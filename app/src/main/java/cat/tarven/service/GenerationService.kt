@@ -42,6 +42,7 @@ class GenerationService : Service() {
             .setContentText("正在生成回复，请稍候...")
             .setSmallIcon(android.R.drawable.ic_dialog_info) // 使用系统默认图标
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

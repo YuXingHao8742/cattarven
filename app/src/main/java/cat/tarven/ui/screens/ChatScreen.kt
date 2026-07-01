@@ -284,8 +284,10 @@ fun ChatScreen(
             }
         }
 
-        // 输入框 — 保持不变
+        // 输入框
         ChatInput(
+            text = chatViewModel.chatInputText,
+            onTextChange = { chatViewModel.chatInputText = it },
             onSend = { text -> chatViewModel.sendMessage(text) },
             onSendProp = { prop -> chatViewModel.sendMessage(prop.content, propName = prop.name) },
             onStop = { chatViewModel.stopGenerating() },

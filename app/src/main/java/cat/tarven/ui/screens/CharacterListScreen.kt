@@ -117,6 +117,18 @@ fun CharacterListScreen(
         }
     }
 
+    // 文件选择器 - 导出 TXT
+    val txtSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        uri?.let { uriPath ->
+            showDeleteDialog?.let { conv ->
+                characterViewModel.exportConversationAsTxt(conv.conversation, uriPath)
+                showDeleteDialog = null
+            }
+        }
+    }
+
     // 监听导出结果
     LaunchedEffect(characterViewModel.exportSuccessMessage) {
         characterViewModel.exportSuccessMessage?.let { msg ->
@@ -250,11 +262,17 @@ fun CharacterListScreen(
         showDeleteDialog?.let { convToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("删除操作", color = MaterialTheme.colorScheme.onSurface) },
-                text = { Text("请选择要执行的操作：\n\n1. 仅删除当前这段历史对话\n2. 彻底删除角色卡「${convToDelete.character.name}」及其所有数据", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                title = { Text("操作选项", color = MaterialTheme.colorScheme.onSurface) },
+                text = { Text("请选择要执行的操作：\n\n1. 导出当前对话记录(TXT)\n2. 导出角色卡\n3. 仅删除当前这段历史对话\n4. 彻底删除角色卡「${convToDelete.character.name}」及其所有数据", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 containerColor = MaterialTheme.colorScheme.surface,
                 confirmButton = {
                     Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = {
+                            val fileName = "${convToDelete.character.name.ifBlank { "character" }}_dialogue.txt"
+                            txtSaver.launch(fileName)
+                        }) {
+                            Text("导出当前对话记录(TXT)", color = TavernPurpleLight)
+                        }
                         TextButton(onClick = {
                             showExportDialog = convToDelete.character
                             showDeleteDialog = null
@@ -273,11 +291,9 @@ fun CharacterListScreen(
                         }) {
                             Text("彻底删除角色卡", color = ErrorRed)
                         }
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = null }) {
-                        Text("取消", color = MaterialTheme.textMuted)
+                        TextButton(onClick = { showDeleteDialog = null }) {
+                            Text("取消", color = MaterialTheme.textMuted)
+                        }
                     }
                 }
             )

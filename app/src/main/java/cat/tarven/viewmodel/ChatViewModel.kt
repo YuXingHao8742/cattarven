@@ -42,6 +42,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var editVersion by mutableStateOf(0)
         private set
+    var chatInputText by mutableStateOf("")
 
     private var streamingJob: Job? = null
 

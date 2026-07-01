@@ -291,6 +291,37 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * 导出对话内容为 TXT 文件
+     */
+    fun exportConversationAsTxt(conversation: cat.tarven.data.model.Conversation, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val sb = java.lang.StringBuilder()
+                for (msg in conversation.messages) {
+                    val name = msg.name ?: if (msg.role == cat.tarven.data.model.MessageRole.USER) "User" else "Assistant"
+                    sb.appendLine("$name: \n${msg.content}")
+                    sb.appendLine("-".repeat(40))
+                    sb.appendLine()
+                }
+
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(sb.toString().toByteArray(Charsets.UTF_8))
+                    outputStream.flush()
+                } ?: throw Exception("无法打开输出流")
+
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    exportSuccessMessage = "对话记录已导出为 TXT"
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    errorMessage = "导出 TXT 失败: ${e.message}"
+                }
+            }
+        }
+    }
+
     fun clearExportSuccess() {
         exportSuccessMessage = null
     }

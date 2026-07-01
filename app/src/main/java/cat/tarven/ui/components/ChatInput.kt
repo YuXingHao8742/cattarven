@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.Backpack
 
 @Composable
 fun ChatInput(
+    text: String,
+    onTextChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onSendProp: (PropItem) -> Unit,
     onStop: () -> Unit,
@@ -52,7 +54,6 @@ fun ChatInput(
     props: List<PropItem>,
     modifier: Modifier = Modifier
 ) {
-    var text by remember { mutableStateOf("") }
     var showPropsMenu by remember { mutableStateOf(false) }
 
     Row(
@@ -79,7 +80,7 @@ fun ChatInput(
         // 输入框
         BasicTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = onTextChange,
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 44.dp, max = 160.dp)
@@ -154,7 +155,7 @@ fun ChatInput(
                         onStop()
                     } else if (text.isNotBlank()) {
                         onSend(text)
-                        text = ""
+                        onTextChange("")
                     }
                 },
                 modifier = Modifier
