@@ -1,6 +1,8 @@
 package cat.tarven.data.model
 
 import com.google.gson.annotations.SerializedName
+import cat.tarven.utils.WorldInfoMapper.isDisabled
+import cat.tarven.utils.WorldInfoMapper.toWorldInfoEntry
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.UUID
@@ -243,33 +245,7 @@ data class CharacterBook(
         }
 
         return WorldInfo(
-            entries = entryList.filter { 
-                val isDisabled = it.disable ?: !(it.enabled ?: true)
-                !isDisabled
-            }.map { raw ->
-                WorldInfoEntry(
-                    keys = raw.keys ?: raw.key ?: emptyList(),
-                    content = raw.content ?: "",
-                    insertionOrder = raw.insertion_order ?: raw.insertionorder ?: raw.order ?: 0,
-                    comment = raw.comment ?: "",
-                    constant = raw.constant ?: false,
-                    disable = raw.disable ?: !(raw.enabled ?: true),
-                    selective = raw.selective ?: false,
-                    keysecondary = raw.secondary_keys ?: raw.keysecondary ?: emptyList(),
-                    position = when (val p = raw.position) {
-                        is Number -> p.toInt()
-                        is String -> p.toIntOrNull() ?: 1
-                        else -> 1
-                    },
-                    depth = raw.depth ?: 4,
-                    role = when (raw.role) {
-                        0, "0" -> "system"
-                        1, "1" -> "user"
-                        2, "2" -> "assistant"
-                        else -> "system"
-                    }
-                )
-            }
+            entries = entryList.filter { !it.isDisabled() }.map { it.toWorldInfoEntry() }
         )
     }
 }

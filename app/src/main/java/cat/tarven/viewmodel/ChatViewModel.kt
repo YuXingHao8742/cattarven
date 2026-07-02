@@ -5,31 +5,33 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import cat.tarven.data.api.ApiMessage
 import cat.tarven.data.api.ChatCompletionRequest
-import cat.tarven.data.api.OpenAIService
+import cat.tarven.data.api.ContextBuilder
 import cat.tarven.data.model.Attachment
 import cat.tarven.data.model.Character
 import cat.tarven.data.model.ChatMessage
 import cat.tarven.data.model.Conversation
 import cat.tarven.data.model.MessageRole
-import cat.tarven.data.model.MessageSwipe
 import cat.tarven.data.repository.ChatRepository
-import cat.tarven.data.repository.LabRepository
 import cat.tarven.data.repository.SettingsRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.catch
+import cat.tarven.engine.ChatGenerationManager
+import cat.tarven.engine.GenerationState
+import cat.tarven.utils.MacroSubstitutor
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ChatViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val chatRepo = ChatRepository(application)
-    private val settingsRepo = SettingsRepository(application)
-    private val charRepo = cat.tarven.data.repository.CharacterRepository(application)
-    private val apiService = OpenAIService()
-    private val labRepository = LabRepository(application)
+@HiltViewModel
+class ChatViewModel @Inject constructor(
+    private val chatRepo: ChatRepository,
+    private val settingsRepo: SettingsRepository,
+    private val charRepo: cat.tarven.data.repository.CharacterRepository,
+    private val generationManager: ChatGenerationManager,
+    private val application: Application
+) : ViewModel() {
 
     val messages = mutableStateListOf<ChatMessage>()
 
@@ -46,7 +48,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var chatInputText by mutableStateOf("")
     val pendingAttachments = mutableStateListOf<Attachment>()
 
-    private var streamingJob: Job? = null
+    init {
+        // 观察全局多通道生成引擎的状态流，同步更新本地 UI 状态
+        viewModelScope.launch {
+            generationManager.generationStates.collect { statesMap ->
+                val currentId = currentConversation?.id ?: return@collect
+                val state = statesMap[currentId]
+
+                when (state) {
+                    null, is GenerationState.Idle -> {
+                        isGenerating = false
+                    }
+                    is GenerationState.Generating -> {
+                        isGenerating = true
+                        messages.clear()
+                        messages.addAll(state.messages)
+                    }
+                    is GenerationState.Completed -> {
+                        isGenerating = false
+                        messages.clear()
+                        messages.addAll(state.messages)
+                        // 同步更新 currentConversation 的 messages 快照
+                        currentConversation = currentConversation?.copy(
+                            messages = state.messages,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        // 消费完成状态，重置为 Idle
+                        generationManager.acknowledgeCompletion(currentId)
+                    }
+                    is GenerationState.Error -> {
+                        isGenerating = false
+                        errorMessage = state.error
+                        messages.clear()
+                        messages.addAll(state.messages)
+                        currentConversation = currentConversation?.copy(
+                            messages = state.messages,
+                            updatedAt = System.currentTimeMillis()
+                        )
+                        generationManager.acknowledgeCompletion(currentId)
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * 初始化聊天 — 加载角色和对话
@@ -58,9 +102,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        stopGenerating() // 切换对话前先停止上一次可能正在生成的任务
+        // 不再调用 stopGenerating()！如果后台正在生成其他对话，让它继续
         currentCharacter = convWithChar.character
         currentConversation = convWithChar.conversation
+
+        // 如果生成引擎正在为这个对话生成，从引擎获取最新状态
+        val genState = generationManager.generationStates.value[convWithChar.conversation.id]
+        if (genState is GenerationState.Generating) {
+            messages.clear()
+            messages.addAll(genState.messages)
+            isGenerating = true
+            return
+        }
+
+        // 否则从传入的对话加载消息
         messages.clear()
         messages.addAll(convWithChar.conversation.messages)
 
@@ -74,7 +129,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (messages.isEmpty() && allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(allGreetings.first(), convWithChar.character),
+                content = MacroSubstitutor.substituteParams(allGreetings.first(), convWithChar.character, settingsRepo.userName),
                 name = convWithChar.character.name,
                 alternateGreetings = allGreetings,
                 currentGreetingIndex = 0
@@ -92,15 +147,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             charRepo.getCharacter(id)?.let { updatedChar ->
                 currentCharacter = updatedChar
             }
-        }
-    }
-
-    private fun setGeneratingStatus(generating: Boolean) {
-        isGenerating = generating
-        if (generating) {
-            cat.tarven.service.GenerationService.start(getApplication())
-        } else {
-            cat.tarven.service.GenerationService.stop(getApplication())
         }
     }
 
@@ -122,7 +168,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 兼容旧版主开场白切换
                 val character = currentCharacter ?: return
                 messages[index] = msg.copy(
-                    content = substituteParams(msg.alternateGreetings[newIndex], character),
+                    content = MacroSubstitutor.substituteParams(msg.alternateGreetings[newIndex], character, settingsRepo.userName),
                     currentGreetingIndex = newIndex
                 )
                 saveMessages()
@@ -132,15 +178,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 发送用户消息并请求 AI 回复
-     * 发送消息
      */
     fun sendMessage(content: String, propName: String? = null, attachments: List<Attachment> = emptyList()) {
         val character = currentCharacter ?: return
+        val conversation = currentConversation ?: return
         val hasAttachments = attachments.isNotEmpty()
-        if (content.isBlank() && !hasAttachments || isGenerating) return
+        if (content.isBlank() && !hasAttachments || generationManager.isGenerating(conversation.id)) return
 
         if (!settingsRepo.isApiConfigured()) {
             errorMessage = "请先在设置中配置 API 地址、密钥和模型名称"
+            return
+        }
+
+        if (!isNetworkAvailable()) {
+            errorMessage = "无网络连接，请检查网络设置"
             return
         }
 
@@ -155,12 +206,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messages.add(userMessage)
         saveMessages()
 
-        // 开始生成
-        setGeneratingStatus(true)
-        errorMessage = null
-
         // 构建 API 消息列表
-        val apiMessages = buildApiMessages(character)
+        errorMessage = null
+        val settings = ContextBuilder.Settings(
+            systemPrompt = settingsRepo.systemPrompt,
+            userName = settingsRepo.userName,
+            userPersona = settingsRepo.userPersona,
+            statusBarStripRegex = settingsRepo.statusBarStripRegex
+        )
+        val apiMessages = ContextBuilder.build(character, messages, settings)
 
         val request = ChatCompletionRequest(
             model = settingsRepo.modelName,
@@ -174,403 +228,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             n = settingsRepo.autoSwipeCount
         )
 
-
+        // 委托给全局生成引擎
         if (settingsRepo.streamEnabled) {
-            streamResponse(request, character)
+            generationManager.startStreamGeneration(
+                conversationId = conversation.id,
+                characterId = conversation.characterId,
+                character = character,
+                currentMessages = messages.toList(),
+                request = request
+            )
         } else {
-            nonStreamResponse(request, character)
-        }
-    }
-
-    /**
-     * 将名字格式化为符合 OpenAI API 规范的字符串 (^[a-zA-Z0-9_-]{1,64}$)
-     */
-    private fun sanitizeApiName(name: String): String? {
-        val sanitized = name.replace(Regex("[^a-zA-Z0-9_-]"), "")
-        return if (sanitized.isNotBlank()) sanitized.take(64) else null
-    }
-
-    /**
-     * 清理请求中的 Base64 图片数据，防止实验室查看 JSON 时卡死
-     */
-    private fun sanitizeRequestForLog(request: ChatCompletionRequest): ChatCompletionRequest {
-        val safeMessages = request.messages.map { msg ->
-            if (msg.content is List<*>) {
-                val newContent = msg.content.map { part ->
-                    if (part is Map<*, *> && part["type"] == "image_url") {
-                        mapOf(
-                            "type" to "image_url",
-                            "image_url" to mapOf("url" to "<图片 Base64 编码已隐藏>")
-                        )
-                    } else part
-                }
-                msg.copy(content = newContent)
-            } else {
-                msg
-            }
-        }
-        return request.copy(messages = safeMessages)
-    }
-
-    /**
-     * 压缩并缩放图片，返回 JPEG 的 Base64 编码，防止图片过大导致 HTTP 413
-     */
-    private fun getCompressedImageBase64(filePath: String): String? {
-        try {
-            val options = android.graphics.BitmapFactory.Options()
-            options.inJustDecodeBounds = true
-            android.graphics.BitmapFactory.decodeFile(filePath, options)
-            
-            var scale = 1
-            while (options.outWidth / scale / 2 >= 1024 && options.outHeight / scale / 2 >= 1024) {
-                scale *= 2
-            }
-            
-            val decodeOptions = android.graphics.BitmapFactory.Options()
-            decodeOptions.inSampleSize = scale
-            val bitmap = android.graphics.BitmapFactory.decodeFile(filePath, decodeOptions) ?: return null
-            
-            // Limit max dimension to 1024
-            val maxDim = 1024f
-            val width = bitmap.width
-            val height = bitmap.height
-            val finalBitmap = if (width > maxDim || height > maxDim) {
-                val ratio = Math.min(maxDim / width, maxDim / height)
-                android.graphics.Bitmap.createScaledBitmap(bitmap, (width * ratio).toInt(), (height * ratio).toInt(), true)
-            } else {
-                bitmap
-            }
-            
-            val outputStream = java.io.ByteArrayOutputStream()
-            // 统一压缩为 JPEG，丢弃透明通道但大大减小体积
-            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
-            val bytes = outputStream.toByteArray()
-            
-            if (finalBitmap != bitmap) finalBitmap.recycle()
-            bitmap.recycle()
-            
-            return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
-        }
-    }
-
-    /**
-     * 流式请求
-     */
-    private fun streamResponse(request: ChatCompletionRequest, character: Character, targetMessageIndex: Int? = null) {
-        val msgIndex: Int
-        if (targetMessageIndex == null) {
-            val assistantMessage = ChatMessage(
-                role = MessageRole.ASSISTANT,
-                content = "",
-                name = character.name,
-                isStreaming = true,
-                swipes = listOf(MessageSwipe(content = "")),
-                currentSwipeIndex = 0
-            )
-            messages.add(assistantMessage)
-            msgIndex = messages.lastIndex
-        } else {
-            msgIndex = targetMessageIndex
-            val msg = messages[msgIndex]
-            val newSwipes = msg.swipes.toMutableList()
-            newSwipes.add(MessageSwipe(content = ""))
-            messages[msgIndex] = msg.copy(
-                isStreaming = true,
-                swipes = newSwipes,
-                currentSwipeIndex = newSwipes.lastIndex,
-                content = "" // 主 content 置空或依赖 displayContent
+            generationManager.startNonStreamGeneration(
+                conversationId = conversation.id,
+                characterId = conversation.characterId,
+                character = character,
+                currentMessages = messages.toList(),
+                request = request
             )
         }
-
-        streamingJob = viewModelScope.launch {
-            val contentBuilder = StringBuilder()
-
-            // 复制一份 request，替换里面 messages 中的 name 字段，防止包含中文等非法字符导致 400 错误
-            val safeRequest = request.copy(
-                messages = request.messages.map { it.copy(name = it.name?.let { n -> sanitizeApiName(n) }) }
-            )
-            
-            // 将发给大模型的最终 JSON 保存到本地实验室记录中 (去除巨大的 Base64 字符串防卡死)
-            val logRequest = sanitizeRequestForLog(safeRequest)
-            labRepository.saveLog(character.name, logRequest)
-
-            apiService.streamChatCompletion(
-                apiUrl = settingsRepo.apiUrl,
-                apiKey = settingsRepo.apiKey,
-                request = safeRequest
-            )
-            .catch { error ->
-                // 流出错，更新消息或显示错误
-                if (contentBuilder.isEmpty()) {
-                    if (targetMessageIndex == null) {
-                        // 新增消息场景，安全删除
-                        if (msgIndex < messages.size) {
-                            messages.removeAt(msgIndex)
-                        }
-                    } else {
-                        // 追加 Swipe 场景，回滚新增的空 swipe
-                        if (msgIndex < messages.size) {
-                            val msg = messages[msgIndex]
-                            val rollbackSwipes = msg.swipes.toMutableList()
-                            if (rollbackSwipes.isNotEmpty()) {
-                                rollbackSwipes.removeAt(rollbackSwipes.lastIndex)
-                            }
-                            val prevIdx = rollbackSwipes.lastIndex.coerceAtLeast(0)
-                            messages[msgIndex] = msg.copy(
-                                isStreaming = false,
-                                swipes = rollbackSwipes,
-                                currentSwipeIndex = prevIdx,
-                                content = if (rollbackSwipes.isNotEmpty()) rollbackSwipes[prevIdx].content else msg.content
-                            )
-                        }
-                    }
-                    errorMessage = "生成失败: ${error.message}"
-                } else {
-                    if (msgIndex < messages.size) {
-                        messages[msgIndex] = messages[msgIndex].copy(
-                            content = contentBuilder.toString(),
-                            isStreaming = false
-                        )
-                    }
-                }
-                setGeneratingStatus(false)
-                saveMessages()
-            }
-            .collect { token ->
-                contentBuilder.append(token)
-                if (msgIndex < messages.size) {
-                    val snapshotMsg = messages[msgIndex]
-                    val swipesList = snapshotMsg.swipes.toMutableList()
-                    val activeSwipeIdx = snapshotMsg.currentSwipeIndex
-                    if (activeSwipeIdx in swipesList.indices) {
-                        swipesList[activeSwipeIdx] = swipesList[activeSwipeIdx].copy(content = contentBuilder.toString())
-                    }
-                    messages[msgIndex] = snapshotMsg.copy(
-                        content = contentBuilder.toString(), // 兼容旧版
-                        swipes = swipesList
-                    )
-                }
-            }
-
-            // 流正常结束：分离推理内容
-            if (msgIndex < messages.size) {
-                val fullContent = contentBuilder.toString()
-                val (reasoning, cleanContent) = extractThinkBlock(fullContent)
-
-                val finalMsg = messages[msgIndex]
-                val updatedSwipes = finalMsg.swipes.toMutableList()
-                val activeIdx = finalMsg.currentSwipeIndex
-                if (activeIdx in updatedSwipes.indices) {
-                    updatedSwipes[activeIdx] = updatedSwipes[activeIdx].copy(
-                        content = cleanContent,
-                        reasoningContent = reasoning
-                    )
-                }
-                messages[msgIndex] = finalMsg.copy(
-                    isStreaming = false,
-                    content = cleanContent,
-                    swipes = updatedSwipes
-                )
-            }
-            setGeneratingStatus(false)
-            saveMessages()
-        }
-    }
-
-    /**
-     * 非流式请求
-     */
-    private fun nonStreamResponse(request: ChatCompletionRequest, character: Character, targetMessageIndex: Int? = null) {
-        viewModelScope.launch {
-            val safeRequest = request.copy(
-                messages = request.messages.map { it.copy(name = it.name?.let { n -> sanitizeApiName(n) }) }
-            )
-            
-            val logRequest = sanitizeRequestForLog(safeRequest)
-            labRepository.saveLog(character.name, logRequest)
-
-            val result = apiService.chatCompletion(
-                apiUrl = settingsRepo.apiUrl,
-                apiKey = settingsRepo.apiKey,
-                request = safeRequest
-            )
-
-            result.fold(
-                onSuccess = { rawContents ->
-                    val parsedSwipes = rawContents.map { raw ->
-                        val (reasoning, clean) = extractThinkBlock(raw)
-                        MessageSwipe(content = clean, reasoningContent = reasoning)
-                    }
-                    if (targetMessageIndex == null) {
-                        val assistantMessage = ChatMessage(
-                            role = MessageRole.ASSISTANT,
-                            content = parsedSwipes.first().content,
-                            name = character.name,
-                            swipes = parsedSwipes,
-                            currentSwipeIndex = 0
-                        )
-                        messages.add(assistantMessage)
-                    } else {
-                        val msgIndex = targetMessageIndex
-                        val msg = messages[msgIndex]
-                        val newSwipes = msg.swipes.toMutableList()
-                        newSwipes.addAll(parsedSwipes)
-                        messages[msgIndex] = msg.copy(
-                            swipes = newSwipes,
-                            currentSwipeIndex = newSwipes.lastIndex,
-                            content = parsedSwipes.last().content
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    errorMessage = "生成失败: ${error.message}"
-                }
-            )
-
-            setGeneratingStatus(false)
-            saveMessages()
-        }
-    }
-
-    /**
-     * 构建 OpenAI 格式的消息数组
-     * 新的七层排序逻辑:
-     * ① 全局提示词 (system)
-     * ② 角色系统提示词 (system)
-     * ③ 玩家设定 (system)
-     * ④ 主要设定前的世界书条目 (各自 role)
-     * ⑤ 主要设定 (其 role)
-     * ⑥ 主要设定后的世界书条目 (各自 role)
-     * ⑦ 历史对话
-     * ⑧ 写作规则 (其 role)
-     */
-    private fun buildApiMessages(character: Character, maxIndex: Int? = null): List<ApiMessage> {
-        val apiMessages = mutableListOf<ApiMessage>()
-
-        // 截取目标范围内的历史消息
-        val messagesToInclude = if (maxIndex != null) messages.subList(0, maxIndex + 1) else messages.toList()
-
-        // --- 收集激活的世界书条目 ---
-        val recentMessagesText = messagesToInclude.takeLast(10).joinToString(" ") { it.content }
-        val wiEntries = character.worldInfo?.entries ?: emptyList()
-        val activatedEntries = wiEntries.filter { entry ->
-            !entry.disable && (entry.constant || (entry.keys.isNotEmpty() && entry.keys.any { key ->
-                recentMessagesText.contains(key, ignoreCase = true)
-            }))
-        }
-
-        // 按标签分类
-        val mainSettingEntry = activatedEntries.firstOrNull { it.tag == "main_setting" }
-        val writingRulesEntry = activatedEntries.firstOrNull { it.tag == "writing_rules" }
-        val normalEntries = activatedEntries.filter { it.tag == "normal" }
-        val beforeMainEntries = normalEntries.filter { it.relativePosition == "before_main" }.sortedBy { it.insertionOrder }
-        val afterMainEntries = normalEntries.filter { it.relativePosition == "after_main" }.sortedBy { it.insertionOrder }
-
-        // ① 全局提示词
-        val globalPrompt = substituteParams(settingsRepo.systemPrompt, character).trim()
-        if (globalPrompt.isNotBlank()) {
-            apiMessages.add(ApiMessage(role = "system", content = globalPrompt))
-        }
-
-        // ② 角色系统提示词
-        val charSystemPrompt = substituteParams(character.systemPrompt, character).trim()
-        if (charSystemPrompt.isNotBlank()) {
-            apiMessages.add(ApiMessage(role = "system", content = charSystemPrompt))
-        }
-
-        // ③ 玩家设定（马甲）
-        val userPersona = settingsRepo.userPersona.trim()
-        if (userPersona.isNotBlank()) {
-            apiMessages.add(ApiMessage(role = "system", content = "[Player Character]\n$userPersona"))
-        }
-
-        // ④ 主要设定前的世界书条目
-        beforeMainEntries.forEach { entry ->
-            apiMessages.add(ApiMessage(role = entry.role, content = substituteParams(entry.content, character)))
-        }
-
-        // ⑤ 主要设定
-        if (mainSettingEntry != null) {
-            apiMessages.add(ApiMessage(role = mainSettingEntry.role, content = substituteParams(mainSettingEntry.content, character)))
-        }
-
-        // ⑥ 主要设定后的世界书条目
-        afterMainEntries.forEach { entry ->
-            apiMessages.add(ApiMessage(role = entry.role, content = substituteParams(entry.content, character)))
-        }
-
-        // ⑦ 历史对话
-        // 状态栏剥离：找到最后一条 assistant 消息的索引
-        val nonStreamingMessages = messagesToInclude.filter { !it.isStreaming }
-        val lastAssistantIndex = nonStreamingMessages.indexOfLast { it.role == MessageRole.ASSISTANT }
-        val stripRegexPattern = settingsRepo.statusBarStripRegex.trim()
-        val stripRegex = if (stripRegexPattern.isNotBlank()) {
-            try { Regex(stripRegexPattern, RegexOption.DOT_MATCHES_ALL) } catch (_: Exception) { null }
-        } else null
-
-        val historyMessages = nonStreamingMessages.mapIndexed { index, msg ->
-            // 对非最后一条 assistant 消息应用状态栏剥离
-            val shouldStrip = stripRegex != null && msg.role == MessageRole.ASSISTANT && index != lastAssistantIndex
-            val content = if (shouldStrip) {
-                stripRegex!!.replace(msg.displayContent, "").trim()
-            } else {
-                msg.displayContent
-            }
-
-            if (msg.attachments.isNotEmpty()) {
-                // 构建多模态 content
-                val contentParts = mutableListOf<Map<String, Any>>()
-
-                // 先添加附件内容
-                for (att in msg.attachments) {
-                    if (att.type == "image") {
-                        try {
-                            val base64 = getCompressedImageBase64(att.filePath)
-                            if (base64 != null) {
-                                // 统一使用 image/jpeg
-                                val dataUrl = "data:image/jpeg;base64,$base64"
-                                contentParts.add(mapOf(
-                                    "type" to "image_url",
-                                    "image_url" to mapOf("url" to dataUrl)
-                                ))
-                            }
-                        } catch (_: Exception) { /* 跳过无法读取的图片 */ }
-                    } else {
-                        // 文本附件：读取文件内容拼入文本
-                        try {
-                            val file = java.io.File(att.filePath)
-                            if (file.exists()) {
-                                val fileContent = file.readText(Charsets.UTF_8)
-                                contentParts.add(mapOf(
-                                    "type" to "text",
-                                    "text" to "[用户上传了文件: ${att.fileName}]\n文件内容:\n$fileContent"
-                                ))
-                            }
-                        } catch (_: Exception) { /* 跳过无法读取的文件 */ }
-                    }
-                }
-
-                // 用户输入的文字
-                if (content.isNotBlank()) {
-                    contentParts.add(mapOf("type" to "text", "text" to content))
-                }
-
-                ApiMessage(role = msg.role.value, content = contentParts as Any)
-            } else {
-                ApiMessage(role = msg.role.value, content = content as Any)
-            }
-        }
-        apiMessages.addAll(historyMessages)
-
-        // ⑧ 写作规则
-        if (writingRulesEntry != null) {
-            apiMessages.add(ApiMessage(role = writingRulesEntry.role, content = substituteParams(writingRulesEntry.content, character)))
-        }
-
-        return apiMessages
     }
 
     /**
@@ -585,42 +260,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 参数替换 — 借鉴 SillyTavern 的 substituteParams
-     */
-    private fun substituteParams(text: String, character: Character): String {
-        return text
-            .replace("{{char}}", character.name)
-            .replace("{{user}}", settingsRepo.userName)
-            .replace("{{charIfNotGroup}}", character.name)
-            .replace("{{personality}}", character.personality)
-            .replace("{{scenario}}", character.scenario)
-            .replace("{{description}}", character.description)
-    }
-
-    /**
-     * 从文本中提取 <think> 块，分离推理内容和正文
-     */
-    private fun extractThinkBlock(text: String): Pair<String?, String> {
-        val thinkRegex = Regex("<think>\\n?(.*?)\\n?</think>\\n*", RegexOption.DOT_MATCHES_ALL)
-        val match = thinkRegex.find(text)
-        return if (match != null) {
-            val reasoning = match.groupValues[1].trim()
-            val content = text.removeRange(match.range).trim()
-            Pair(reasoning.ifBlank { null }, content)
-        } else {
-            Pair(null, text)
-        }
-    }
-
-    /**
      * 停止生成
      */
     fun stopGenerating() {
-        streamingJob?.cancel()
-        streamingJob = null
-        setGeneratingStatus(false)
+        val conversation = currentConversation ?: return
+        generationManager.stopGeneration(conversation.id)
+        // isGenerating 会通过 StateFlow collect 自动更新
 
-        // 如果最后一条消息是流式的，标记为完成
+        // 同步本地 messages 状态（防止 collect 延迟导致 UI 闪烁）
         if (messages.isNotEmpty() && messages.last().isStreaming) {
             val lastIndex = messages.lastIndex
             messages[lastIndex] = messages[lastIndex].copy(isStreaming = false)
@@ -628,6 +275,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 messages.removeAt(lastIndex)
             }
         }
+        isGenerating = false
         saveMessages()
     }
 
@@ -635,7 +283,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 重新生成最后一条 AI 回复
      */
     fun regenerateLastResponse() {
-        if (isGenerating) return
+        val conversation = currentConversation ?: return
+        if (generationManager.isGenerating(conversation.id)) return
 
         if (messages.isNotEmpty() && messages.last().role == MessageRole.ASSISTANT) {
             regenerateMessage(messages.last().id)
@@ -646,13 +295,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 重新生成指定消息
      */
     fun regenerateMessage(messageId: String) {
-        if (isGenerating) return
-        
+        val conversation = currentConversation ?: return
+        if (generationManager.isGenerating(conversation.id)) return
+
+        if (!isNetworkAvailable()) {
+            errorMessage = "无网络连接，请检查网络设置"
+            return
+        }
+
         val index = messages.indexOfFirst { it.id == messageId }
         if (index < 0) return
 
-        // 如果是最后一条消息，且它是 AI 消息，则等同于 regenerateLastResponse
-        // 不再删除该消息，而是直接作为 target 追加 Swipe
         if (messages[index].role == MessageRole.ASSISTANT) {
             // 删除这条消息之后的所有消息，不删除本消息
             val messagesToRemove = messages.lastIndex - index
@@ -664,12 +317,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 重新触发生成
             val lastUserIndex = messages.indexOfLast { it.role == MessageRole.USER }
             if (lastUserIndex >= 0) {
-                setGeneratingStatus(true)
                 errorMessage = null
                 val character = currentCharacter ?: return
-                // 构建发送历史时不包含当前正在重试的 assistant 消息
-                // 所以我们截取 messages 到 lastUserIndex 即可
-                val apiMessages = buildApiMessages(character, lastUserIndex)
+                val settings = ContextBuilder.Settings(
+                    systemPrompt = settingsRepo.systemPrompt,
+                    userName = settingsRepo.userName,
+                    userPersona = settingsRepo.userPersona,
+                    statusBarStripRegex = settingsRepo.statusBarStripRegex
+                )
+                val apiMessages = ContextBuilder.build(character, messages, settings, lastUserIndex)
                 val request = ChatCompletionRequest(
                     model = settingsRepo.modelName,
                     messages = apiMessages,
@@ -681,11 +337,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     stream = settingsRepo.streamEnabled,
                     n = settingsRepo.autoSwipeCount
                 )
-                labRepository.saveLog(character.name, request)
+
+                // 委托给全局生成引擎，追加 Swipe
                 if (settingsRepo.streamEnabled) {
-                    streamResponse(request, character, targetMessageIndex = index)
+                    generationManager.startStreamGeneration(
+                        conversationId = conversation.id,
+                        characterId = conversation.characterId,
+                        character = character,
+                        currentMessages = messages.toList(),
+                        request = request,
+                        targetMessageIndex = index
+                    )
                 } else {
-                    nonStreamResponse(request, character, targetMessageIndex = index)
+                    generationManager.startNonStreamGeneration(
+                        conversationId = conversation.id,
+                        characterId = conversation.characterId,
+                        character = character,
+                        currentMessages = messages.toList(),
+                        request = request,
+                        targetMessageIndex = index
+                    )
                 }
             }
         }
@@ -725,7 +396,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun reincarnate(content: String) {
         val character = currentCharacter ?: return
-        
+
         // 1. 创建新对话
         val newConv = chatRepo.saveConversation(
             Conversation(
@@ -735,17 +406,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
         currentConversation = newConv
         messages.clear()
-        
+
         // 2. 添加开场白
         val allGreetings = buildList {
             if (character.firstMessage.isNotBlank()) add(character.firstMessage)
             addAll(character.alternateGreetings)
         }.distinct()
-        
+
         if (allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(allGreetings.first(), character),
+                content = MacroSubstitutor.substituteParams(allGreetings.first(), character, settingsRepo.userName),
                 name = character.name,
                 alternateGreetings = allGreetings,
                 currentGreetingIndex = 0
@@ -753,7 +424,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             messages.add(firstMsg)
             saveMessages()
         }
-        
+
         // 3. 作为用户发送总结内容并触发 AI 生成
         sendMessage(content)
     }
@@ -779,7 +450,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (allGreetings.isNotEmpty()) {
             val firstMsg = ChatMessage(
                 role = MessageRole.ASSISTANT,
-                content = substituteParams(allGreetings.first(), character),
+                content = MacroSubstitutor.substituteParams(allGreetings.first(), character, settingsRepo.userName),
                 name = character.name,
                 alternateGreetings = allGreetings,
                 currentGreetingIndex = 0
@@ -797,6 +468,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * 检查网络连通性
+     */
+    private fun isNetworkAvailable(): Boolean {
+        val cm = application.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        return cm.activeNetwork != null
+    }
+
+    /**
      * 保存消息到本地
      */
     private fun saveMessages() {
@@ -805,6 +484,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             messages = messages.toList(),
             updatedAt = System.currentTimeMillis()
         )
-        currentConversation = chatRepo.saveConversation(updated)
+        currentConversation = updated
+        viewModelScope.launch(Dispatchers.IO) {
+            chatRepo.saveConversation(updated)
+        }
     }
 }

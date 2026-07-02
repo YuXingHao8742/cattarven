@@ -8,12 +8,18 @@ import cat.tarven.data.model.WorldInfoEntry
 import cat.tarven.data.model.RawWorldInfoEntry
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
+import cat.tarven.utils.WorldInfoMapper.isDisabled
+import cat.tarven.utils.WorldInfoMapper.toWorldInfoEntry
 
 /**
  * 角色数据仓库 — 管理角色卡的 CRUD
  */
-class CharacterRepository(private val context: Context) {
+@Singleton
+class CharacterRepository @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val gson = Gson()
     private val charactersDir: File
@@ -153,60 +159,16 @@ class CharacterRepository(private val context: Context) {
                 val entriesObj = entriesElement.asJsonObject
                 for ((_, value) in entriesObj.entrySet()) {
                     val raw = gson.fromJson(value, RawWorldInfoEntry::class.java)
-                    val isDisabled = raw.disable ?: !(raw.enabled ?: true)
-                    if (isDisabled) continue
-                    entryList.add(WorldInfoEntry(
-                        keys = raw.keys ?: raw.key ?: emptyList(),
-                        content = raw.content ?: "",
-                        insertionOrder = raw.insertion_order ?: raw.insertionorder ?: raw.order ?: 0,
-                        comment = raw.comment ?: "",
-                        constant = raw.constant ?: false,
-                        disable = isDisabled,
-                        selective = raw.selective ?: false,
-                        keysecondary = raw.secondary_keys ?: raw.keysecondary ?: emptyList(),
-                        position = when (val p = raw.position) {
-                            is Number -> p.toInt()
-                            is String -> p.toIntOrNull() ?: 1
-                            else -> 1
-                        },
-                        depth = raw.depth ?: 4,
-                        role = when (raw.role) {
-                            0, "0" -> "system"
-                            1, "1" -> "user"
-                            2, "2" -> "assistant"
-                            else -> "system"
-                        }
-                    ))
+                    if (raw.isDisabled()) continue
+                    entryList.add(raw.toWorldInfoEntry())
                 }
             } else if (entriesElement.isJsonArray) {
                 // 列表格式 [{...}, {...}]
                 val arr = entriesElement.asJsonArray
                 for (elem in arr) {
                     val raw = gson.fromJson(elem, RawWorldInfoEntry::class.java)
-                    val isDisabled = raw.disable ?: !(raw.enabled ?: true)
-                    if (isDisabled) continue
-                    entryList.add(WorldInfoEntry(
-                        keys = raw.keys ?: raw.key ?: emptyList(),
-                        content = raw.content ?: "",
-                        insertionOrder = raw.insertion_order ?: raw.insertionorder ?: raw.order ?: 0,
-                        comment = raw.comment ?: "",
-                        constant = raw.constant ?: false,
-                        disable = isDisabled,
-                        selective = raw.selective ?: false,
-                        keysecondary = raw.secondary_keys ?: raw.keysecondary ?: emptyList(),
-                        position = when (val p = raw.position) {
-                            is Number -> p.toInt()
-                            is String -> p.toIntOrNull() ?: 1
-                            else -> 1
-                        },
-                        depth = raw.depth ?: 4,
-                        role = when (raw.role) {
-                            0, "0" -> "system"
-                            1, "1" -> "user"
-                            2, "2" -> "assistant"
-                            else -> "system"
-                        }
-                    ))
+                    if (raw.isDisabled()) continue
+                    entryList.add(raw.toWorldInfoEntry())
                 }
             }
             

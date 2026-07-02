@@ -8,8 +8,8 @@ sealed class Screen(val route: String) {
     data object CharacterEdit : Screen("character_edit/{characterId}") {
         fun createRoute(characterId: String = "new") = "character_edit/$characterId"
     }
-    data object Chat : Screen("chat/{characterId}") {
-        fun createRoute(characterId: String) = "chat/$characterId"
+    data object Chat : Screen("chat/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat/$conversationId"
     }
     data object Settings : Screen("settings")
     data object Lab : Screen("lab")

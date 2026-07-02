@@ -13,7 +13,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,10 +36,10 @@ import java.io.File
 @Composable
 fun CatTarvenApp() {
     val navController = rememberNavController()
-    val characterViewModel: CharacterViewModel = viewModel()
-    val chatViewModel: ChatViewModel = viewModel()
-    val settingsViewModel: SettingsViewModel = viewModel()
-    val labViewModel: cat.tarven.viewmodel.LabViewModel = viewModel()
+    val characterViewModel: CharacterViewModel = hiltViewModel()
+    val chatViewModel: ChatViewModel = hiltViewModel()
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val labViewModel: cat.tarven.viewmodel.LabViewModel = hiltViewModel()
     val context = LocalContext.current
     val characterRepo = remember { CharacterRepository(context) }
 
@@ -129,7 +129,7 @@ fun CatTarvenApp() {
                 composable(
                     route = Screen.Chat.route,
                     arguments = listOf(
-                        navArgument("characterId") { type = NavType.StringType } // 保持名为 characterId 以兼容，但实际传入的是 conversationId
+                        navArgument("conversationId") { type = NavType.StringType }
                     )
                 ) {
                     ChatScreen(

@@ -4,9 +4,13 @@ import android.content.Context
 import cat.tarven.data.model.LabLog
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class LabRepository(private val context: Context) {
+@Singleton
+class LabRepository @Inject constructor(@ApplicationContext private val context: Context) {
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
     private val logsDir: File
         get() = File(context.filesDir, "lab_logs").also { it.mkdirs() }

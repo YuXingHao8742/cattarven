@@ -4,12 +4,16 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import androidx.core.content.edit
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * 设置数据仓库 — 管理 API 连接和应用设置
  */
-class SettingsRepository(context: Context) {
+@Singleton
+class SettingsRepository @Inject constructor(@ApplicationContext context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("cattarven_settings", Context.MODE_PRIVATE)
@@ -206,7 +210,8 @@ class SettingsRepository(context: Context) {
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val type = object : com.google.gson.reflect.TypeToken<List<ApiPreset>>() {}.type
-            gson.fromJson(json, type)
+            val list: List<ApiPreset> = gson.fromJson(json, type) ?: emptyList()
+            list.filter { it.id != null && it.name != null && it.apiUrl != null }
         } catch (e: Exception) {
             emptyList()
         }
@@ -236,7 +241,8 @@ class SettingsRepository(context: Context) {
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val type = object : com.google.gson.reflect.TypeToken<List<cat.tarven.data.model.RegexRule>>() {}.type
-            gson.fromJson(json, type)
+            val list: List<cat.tarven.data.model.RegexRule> = gson.fromJson(json, type) ?: emptyList()
+            list.filter { it.id != null && it.name != null && it.pattern != null && it.replacement != null }
         } catch (e: Exception) {
             emptyList()
         }
@@ -254,7 +260,8 @@ class SettingsRepository(context: Context) {
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val type = object : com.google.gson.reflect.TypeToken<List<PropItem>>() {}.type
-            gson.fromJson(json, type)
+            val list: List<PropItem> = gson.fromJson(json, type) ?: emptyList()
+            list.filter { it.id != null && it.name != null }
         } catch (e: Exception) {
             emptyList()
         }

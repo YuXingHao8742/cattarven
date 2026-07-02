@@ -14,8 +14,20 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable,Signature,EnclosingMethod
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-renamesourcefileattribute SourceFile
+
+# Keep Gson TypeToken
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken { *; }
+
+# Keep data models used for JSON serialization
+-keep class cat.tarven.data.model.** { *; }
+-keep class cat.tarven.data.repository.ApiPreset { *; }
+-keep class cat.tarven.data.repository.PropItem { *; }
+
+# Keep generation engine (sealed class + manager)
+-keep class cat.tarven.engine.** { *; }

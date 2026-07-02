@@ -17,19 +17,19 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * OpenAI 兼容 API 服务
  * 支持自定义端点和密钥，SSE 流式传输
  */
-class OpenAIService {
+@Singleton
+class OpenAIService @Inject constructor(
+    private val client: OkHttpClient,
+    private val gson: Gson
+) {
 
-    private val gson = Gson()
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
 
     /**
      * 流式聊天补全 — 返回 Flow<String>，逐 token 发射
@@ -44,9 +44,7 @@ class OpenAIService {
         val jsonBody = gson.toJson(streamRequest)
         
         // 打印大模型请求的真实 JSON 数据，方便在 Logcat 查看！
-        android.util.Log.d("ChatJSON", "================ 准备发送给 AI 的数据 ================")
-        android.util.Log.d("ChatJSON", jsonBody)
-        android.util.Log.d("ChatJSON", "=====================================================")
+        timber.log.Timber.tag("ChatJSON").d("================ 准备发送给 AI 的数据 ================\n$jsonBody\n=====================================================")
 
         val httpRequest = Request.Builder()
             .url(url)

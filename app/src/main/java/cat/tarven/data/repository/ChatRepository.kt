@@ -3,14 +3,19 @@ package cat.tarven.data.repository
 import android.content.Context
 import cat.tarven.data.model.Conversation
 import com.google.gson.Gson
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * 聊天数据仓库 — 管理对话和消息的持久化
  */
-class ChatRepository(private val context: Context) {
+@Singleton
+class ChatRepository @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val gson = Gson()
+    private val conversationCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Conversation>>()
     private val chatsDir: File
         get() = File(context.filesDir, "chats").also { it.mkdirs() }
 
@@ -55,6 +60,7 @@ class ChatRepository(private val context: Context) {
         dir.mkdirs()
         val file = File(dir, "${updated.id}.json")
         file.writeText(gson.toJson(updated))
+        conversationCache[file.absolutePath] = Pair(file.lastModified(), updated)
         return updated
     }
 
@@ -62,14 +68,18 @@ class ChatRepository(private val context: Context) {
      * 删除对话
      */
     fun deleteConversation(characterId: String, conversationId: String) {
-        File(File(chatsDir, characterId), "$conversationId.json").delete()
+        val file = File(File(chatsDir, characterId), "$conversationId.json")
+        conversationCache.remove(file.absolutePath)
+        file.delete()
     }
 
     /**
      * 删除某角色的所有对话
      */
     fun deleteAllConversations(characterId: String) {
-        File(chatsDir, characterId).deleteRecursively()
+        val dir = File(chatsDir, characterId)
+        dir.listFiles()?.forEach { conversationCache.remove(it.absolutePath) }
+        dir.deleteRecursively()
     }
 
     /**
@@ -99,10 +109,18 @@ class ChatRepository(private val context: Context) {
             val files = dir.listFiles { file -> file.extension == "json" } ?: continue
             for (file in files) {
                 try {
-                    val conv = gson.fromJson(file.readText(), Conversation::class.java)
-                    allConversations.add(conv)
+                    val path = file.absolutePath
+                    val lastModified = file.lastModified()
+                    val cached = conversationCache[path]
+                    if (cached != null && cached.first == lastModified) {
+                        allConversations.add(cached.second)
+                    } else {
+                        val conv = gson.fromJson(file.readText(), Conversation::class.java)
+                        conversationCache[path] = Pair(lastModified, conv)
+                        allConversations.add(conv)
+                    }
                 } catch (e: Exception) {
-                    // Ignore corrupted files
+                    timber.log.Timber.e(e, "Failed to parse conversation file: ${file.name}")
                 }
             }
         }

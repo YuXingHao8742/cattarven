@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CatTarven Chat</title>
+<link rel="stylesheet" href="chat/atom-one-dark.min.css">
+<script src="chat/highlight.min.js"></script>
+<script src="chat/marked.min.js"></script>
+<script>
+if (typeof marked !== 'undefined') {
+  marked.setOptions({
+    highlight: function(code, lang) {
+      if (typeof hljs !== 'undefined' && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      } else if (typeof hljs !== 'undefined') {
+        return hljs.highlightAuto(code).value;
+      }
+      return code;
+    },
+    breaks: true
+  });
+}
+</script>
 <style>
 /* ===== CSS 变量 - 深色主题 (默认) ===== */
 :root {
@@ -565,9 +583,17 @@ function buildMessageHtml(msg) {
   } else if (msg.propName) {
     contentHtml = '<div class="msg-text msg-text-prop">【道具】' + escapeHtml(msg.propName) + '</div>';
   } else if (enableHtml) {
-    contentHtml = attachmentHtml + '<div class="msg-text">' + processedContent + '</div>';
+    var finalContent = processedContent;
+    if (typeof marked !== 'undefined') {
+      finalContent = marked.parse(finalContent);
+    }
+    contentHtml = attachmentHtml + '<div class="msg-text">' + finalContent + '</div>';
   } else {
-    contentHtml = attachmentHtml + '<div class="msg-text msg-text-plain">' + escapeHtml(processedContent) + '</div>';
+    var finalContent = escapeHtml(processedContent);
+    if (typeof marked !== 'undefined') {
+      finalContent = marked.parse(finalContent);
+    }
+    contentHtml = attachmentHtml + '<div class="msg-text msg-text-plain">' + finalContent + '</div>';
   }
 
   // Swipe 切换器

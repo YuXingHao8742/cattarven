@@ -5,7 +5,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -14,11 +14,17 @@ import cat.tarven.data.repository.CharacterRepository
 import cat.tarven.data.repository.ChatRepository
 import com.google.gson.GsonBuilder
 import android.graphics.BitmapFactory
+import android.content.Context
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
-class CharacterViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val characterRepo = CharacterRepository(application)
-    private val chatRepo = ChatRepository(application)
+@HiltViewModel
+class CharacterViewModel @Inject constructor(
+    private val characterRepo: CharacterRepository,
+    private val chatRepo: ChatRepository,
+    @ApplicationContext private val context: Context
+) : ViewModel() {
 
     var conversations by mutableStateOf<List<cat.tarven.data.model.ConversationWithCharacter>>(emptyList())
         private set
@@ -130,7 +136,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun importCharacterFromUri(uri: Uri) {
         try {
-            val context = getApplication<Application>()
             val type = context.contentResolver.getType(uri)
             val isPng = type?.startsWith("image/png") == true || uri.toString().endsWith(".png", ignoreCase = true)
 
@@ -170,7 +175,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun saveAvatarImage(uri: Uri): String? {
         return try {
-            val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val avatarDir = java.io.File(context.filesDir, "avatars").apply { mkdirs() }
             val fileName = "avatar_${System.currentTimeMillis()}.png"
@@ -187,7 +191,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun saveChatBackgroundImage(uri: Uri): String? {
         return try {
-            val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val bgDir = java.io.File(context.filesDir, "chat_backgrounds").apply { mkdirs() }
             val fileName = "chat_bg_${System.currentTimeMillis()}.jpg"
@@ -204,7 +207,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun importWorldInfoFromUri(uri: Uri): cat.tarven.data.model.WorldInfo? {
         return try {
-            val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val jsonString = inputStream.bufferedReader().readText()
             inputStream.close()
@@ -231,7 +233,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
     fun exportCharacterAsJson(character: Character, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
                 val cardV2 = character.toCharacterCardV2()
                 val gson = GsonBuilder().setPrettyPrinting().create()
                 val jsonString = gson.toJson(cardV2)
@@ -258,7 +259,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
     fun exportCharacterAsPng(character: Character, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
                 val cardV2 = character.toCharacterCardV2()
                 val gson = GsonBuilder().create()
                 val jsonString = gson.toJson(cardV2)
@@ -297,7 +297,6 @@ class CharacterViewModel(application: Application) : AndroidViewModel(applicatio
     fun exportConversationAsTxt(conversation: cat.tarven.data.model.Conversation, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
                 val sb = java.lang.StringBuilder()
                 for (msg in conversation.messages) {
                     val name = msg.name ?: if (msg.role == cat.tarven.data.model.MessageRole.USER) "User" else "Assistant"

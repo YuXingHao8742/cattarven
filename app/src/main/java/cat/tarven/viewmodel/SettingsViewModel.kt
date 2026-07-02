@@ -6,16 +6,19 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cat.tarven.data.api.OpenAIService
 import cat.tarven.data.repository.SettingsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val repository = SettingsRepository(application)
-    private val apiService = OpenAIService()
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val repository: SettingsRepository,
+    private val apiService: OpenAIService
+) : ViewModel() {
 
     var apiUrl by mutableStateOf(repository.apiUrl)
         private set
